@@ -337,40 +337,162 @@ Build a high-performance, multi-threaded trading system with:
 
 ## Phase 5: Multi-Symbol Threading Engine (Week 6-7)
 
-### 5.1 Symbol Runner Architecture
-- [ ] Implement `SymbolRunner` struct:
+### 5.1 Unified Symbol Runner Architecture
+- [ ] Design `RunMode` enum:
   ```rust
-  struct SymbolRunner {
-      symbol: String,
-      state_machine: StateMachine,
-      data_feed: Arc<RwLock<HashMap<String, MarketDataWindow>>>,
+  pub enum RunMode {
+      Live,
+      Historical { 
+          simulate_realtime: bool,
+          speed_multiplier: f64,
+      },
   }
   ```
-- [ ] Implement main event loop with dynamic sleeping
+- [ ] Implement mode-agnostic `SymbolRunner` struct:
+  ```rust
+  pub struct SymbolRunner {
+      symbol: String,
+      state_machine: StateMachine,
+      data_source: Box<dyn MarketDataSource>,
+      execution_engine: Box<dyn ExecutionEngine>,
+      mode: RunMode,
+  }
+  ```
+- [ ] Implement unified `run()` method that works identically for both modes
+- [ ] Handle end-of-data condition for historical mode
 - [ ] Add graceful shutdown handling
 - [ ] Implement panic recovery per symbol
 
-### 5.2 Trading Engine Core
+### 5.2 Data Source Mode Abstraction
+- [ ] Ensure `MarketDataSource` trait works for both live and historical:
+  ```rust
+  async fn next_tick(&mut self) -> Result<MarketData>;
+  // Live: blocks until WebSocket data arrives
+  // Historical: returns next bar immediately or with simulated delay
+  ```
+- [ ] Implement `HistoricalDataSource`:
+  ```rust
+  pub struct HistoricalDataSource {
+      data: Vec<MarketData>,
+      current_index: usize,
+      simulate_realtime: bool,
+      speed_multiplier: f64,
+      start_time: Instant,
+  }
+  ```
+- [ ] Add `from_parquet()` and `from_csv()` constructors
+- [ ] Implement realtime simulation with configurable speed
+- [ ] Add `set_speed()` for dynamic speed adjustment during replay
+- [ ] Handle time synchronization for accurate delay simulation
+
+### 5.3 Execution Engine Abstraction
+- [ ] Define `ExecutionEngine` trait for order execution:
+  ```rust
+  #[async_trait]
+  pub trait ExecutionEngine: Send + Sync {
+      async fn submit_order(&mut self, order: Order) -> Result<OrderId>;
+      async fn cancel_order(&mut self, order_id: OrderId) -> Result<()>;
+      async fn get_position(&self, symbol: &str) -> Option<Position>;
+  }
+  ```
+- [ ] Implement `LiveExecution` for real broker orders
+- [ ] Implement `SimulatedExecution` for backtesting:
+  - Configurable fill models (immediate, realistic slippage)
+  - Commission modeling
+  - Position tracking
+  - P&L calculation
+- [ ] Make execution mode configurable per runner
+
+### 5.4 Symbol Runner Builder Pattern
+- [ ] Implement `SymbolRunnerBuilder` for flexible construction:
+  ```rust
+  let runner = SymbolRunnerBuilder::new(symbol, strategy)
+      .with_live_data(BinanceSource::new())
+      .with_live_execution(binance_client)
+      .with_event_capture(true)
+      .build()?;
+  
+  let runner = SymbolRunnerBuilder::new(symbol, strategy)
+      .with_historical_data(HistoricalSource::from_parquet(path)?, 10.0)
+      .with_simulated_execution()
+      .with_event_capture(true)
+      .build()?;
+  ```
+- [ ] Validate required components are provided
+- [ ] Apply sensible defaults
+- [ ] Support method chaining
+
+### 5.5 Trading Engine Core
 - [ ] Implement `TradingEngine` with async Tokio runtime
-- [ ] Add symbol registration: `add_symbol(symbol, strategy_path)`
-- [ ] Implement symbol removal and cleanup
+- [ ] Add `add_symbol_live()` method for live trading
+- [ ] Add `add_symbol_historical()` method for backtesting
+- [ ] Implement unified `spawn_runner()` internal method
+- [ ] Add symbol removal and cleanup
 - [ ] Add engine-level configuration (max symbols, thread pool size)
 - [ ] Implement health monitoring for symbol runners
+- [ ] Track runner mode and adjust monitoring accordingly
 
-### 5.3 Concurrency & Synchronization
+### 5.6 Mode-Specific Behavior
+- [ ] Live mode monitoring:
+  - WebSocket connection health
+  - Data latency tracking
+  - Order execution latency
+  - Real-time alerts
+- [ ] Historical mode monitoring:
+  - Progress tracking (% complete)
+  - Playback speed
+  - Estimated completion time
+  - Fast-forward capability
+- [ ] Unified logging that includes mode context
+
+### 5.7 Configuration System for Modes
+- [ ] Implement TOML configuration for mixed mode runners:
+  ```toml
+  [[runners]]
+  symbol = "BTCUSDT"
+  strategy = "strategies/range.lua"
+  
+  [runners.data_source]
+  type = "live"
+  source = "binance"
+  
+  [runners.execution]
+  type = "live"
+  
+  [[runners]]
+  symbol = "ETHUSDT"
+  strategy = "strategies/range.lua"
+  
+  [runners.data_source]
+  type = "historical"
+  path = "data/ETHUSDT-2024.parquet"
+  simulate_realtime = true
+  speed = 10.0
+  
+  [runners.execution]
+  type = "simulated"
+  slippage = 0.001
+  ```
+- [ ] Support running live and historical runners simultaneously
+- [ ] Validate mode compatibility (can't use live execution with historical data)
+
+### 5.8 Concurrency & Synchronization
 - [ ] Implement thread-safe market data distribution
 - [ ] Add action queue for trade execution
 - [ ] Implement cross-symbol coordination (if needed)
 - [ ] Add deadlock detection
-- [ ] Benchmark with 10, 50, 100+ concurrent symbols
+- [ ] Benchmark with 10, 50, 100+ concurrent symbols (mixed modes)
+- [ ] Test performance difference between live and historical modes
 
-### 5.4 Resource Management
+### 5.9 Resource Management
 - [ ] Implement memory limits per symbol
 - [ ] Add CPU usage monitoring
 - [ ] Implement automatic throttling under load
 - [ ] Add metrics collection (state changes/sec, indicator calls, etc.)
+- [ ] Track resources separately for live vs historical runners
+- [ ] Implement priority system (live runners get priority over historical)
 
-**Deliverable**: Multiple symbols running concurrently with isolated strategies
+**Deliverable**: Unified symbol runner architecture where live and historical modes are mechanically identical, differing only in data source blocking behavior and execution simulation. Multiple symbols can run concurrently in either mode or mixed modes.
 
 ---
 
@@ -415,31 +537,151 @@ Build a high-performance, multi-threaded trading system with:
 
 ---
 
-## Phase 7: Backtesting Framework (Week 8-9)
+## Phase 7: Event Sourcing & Replay System (Week 8-9)
 
-### 7.1 Historical Data Management
+### 7.1 Event Sourcing Foundation
+- [ ] Design `StateMachineEvent` structure:
+  ```rust
+  pub struct StateMachineEvent {
+      pub sequence: u64,
+      pub timestamp: i64,
+      pub market_data: MarketData,
+      pub state_before: StateSnapshot,
+      pub transition: Option<StateTransition>,
+      pub action: Option<Action>,
+      pub state_after: StateSnapshot,
+  }
+  ```
+- [ ] Define `StateSnapshot` to capture context and indicators
+- [ ] Implement `EventStream` for complete session recording
+- [ ] Add event sequence validation
+
+### 7.2 State Machine Event Capture
+- [ ] Modify `StateMachine` to support event capture mode
+- [ ] Implement `with_event_capture(session_id)` constructor
+- [ ] Capture state before and after each `update()` call
+- [ ] Detect and record state transitions with reasons
+- [ ] Store action decisions with full context
+- [ ] Add `get_event_stream()` method to retrieve recorded events
+
+### 7.3 Event Storage
+- [ ] Implement `EventLog` for sequential event storage:
+  ```rust
+  pub struct EventLog {
+      path: PathBuf,
+      writer: Option<BufWriter<File>>,
+  }
+  ```
+- [ ] Use MessagePack + LZ4 compression for events
+- [ ] Implement length-prefixed event serialization
+- [ ] Add `append_event()` for real-time recording
+- [ ] Implement `read_events()` for loading complete streams
+- [ ] Create file structure: `data/sessions/{session_id}/events.msgpack.lz4`
+
+### 7.4 Storage Optimization Modes
+- [ ] Implement `EventStorageMode` enum (Full vs Delta)
+- [ ] **Full mode**: Store complete state snapshots at each event
+- [ ] **Delta mode**: Store only changed values + periodic snapshots
+- [ ] Add configuration for snapshot interval in delta mode
+- [ ] Implement optional indicator caching (vs recompute on replay)
+- [ ] Benchmark storage sizes for different modes
+
+### 7.5 Replay State Machine
+- [ ] Implement `ReplayStateMachine` (read-only, no strategy execution):
+  ```rust
+  pub struct ReplayStateMachine {
+      current_state: State,
+      context: HashMap<String, Value>,
+      sequence: u64,
+  }
+  ```
+- [ ] Implement `apply_event()` to reconstruct state from events
+- [ ] Add sequence number validation
+- [ ] Implement `seek()` to jump to specific event
+- [ ] Add `at_time()` for timestamp-based seeking
+- [ ] Implement binary search for efficient time navigation
+
+### 7.6 Replay Features
+- [ ] Variable playback speed (1x, 5x, 10x, 100x)
+- [ ] Pause/resume functionality
+- [ ] Step-by-step event navigation (forward/backward)
+- [ ] Time travel to specific timestamps
+- [ ] Filter events by type (state changes only, actions only, etc.)
+- [ ] Export replay state at any point for analysis
+
+### 7.7 Alternative Analysis Tools
+- [ ] Replay with different strategy to compare "what if" scenarios
+- [ ] Replay with modified parameters
+- [ ] A/B testing framework using saved event streams
+- [ ] Generate comparison reports between original and alternative runs
+
+### 7.8 Web API for Replay
+- [ ] Implement REST endpoints:
+  ```
+  GET  /api/sessions              - List all sessions
+  GET  /api/sessions/:id          - Get session metadata
+  GET  /api/sessions/:id/events   - Get event stream
+  GET  /api/sessions/:id/replay   - Server-Sent Events for real-time replay
+  ```
+- [ ] Add query parameters for speed, start/end sequence
+- [ ] Implement Server-Sent Events (SSE) for streaming replay
+- [ ] Add WebSocket support for interactive control (pause, seek, speed)
+- [ ] Implement event filtering in API
+
+### 7.9 Debugging Tools
+- [ ] CLI tool to inspect events at specific sequence
+- [ ] Pretty-print state snapshots
+- [ ] Diff tool to compare state between events
+- [ ] Find events matching specific criteria (e.g., "all trades entered")
+- [ ] Generate timeline visualization of state transitions
+- [ ] Export events to CSV/JSON for external analysis
+
+**Deliverable**: Complete event sourcing system with replay capabilities, enabling time-travel debugging and alternative strategy analysis
+
+---
+
+## Phase 8: Backtesting Framework (Week 9-10)
+
+### 8.1 Historical Data Management
 - [ ] Design data storage format (Parquet or custom binary)
-- [ ] Implement historical data loader
+- [ ] Implement historical data loader for Parquet
+- [ ] Implement historical data loader for CSV
 - [ ] Add data validation (missing bars, outliers)
 - [ ] Support multiple data sources (CSV, database, API)
 - [ ] Implement tick-level vs bar-level replay
+- [ ] Create data preprocessing tools (resampling, cleaning)
 
-### 7.2 Backtest Engine
-- [ ] Implement `Backtester` struct:
+### 8.2 Backtest Engine
+- [ ] Implement `Backtester` struct using unified runner architecture:
   ```rust
   pub struct Backtester {
-      engine: TradingEngine,
-      historical_feed: HistoricalDataFeed,
+      symbol: String,
+      strategy_path: String,
+      historical_source: HistoricalDataSource,
       start_date: DateTime<Utc>,
       end_date: DateTime<Utc>,
   }
   ```
-- [ ] Add time-travel mechanics (fast-forward through history)
-- [ ] Implement realistic order filling simulation
-- [ ] Add configurable slippage models
+- [ ] Use `SymbolRunner` in Historical mode internally
+- [ ] Add progress tracking and status updates
+- [ ] Implement configurable slippage models in `SimulatedExecution`
 - [ ] Handle corporate actions (splits, dividends)
+- [ ] Enable event capture during backtesting
+- [ ] Generate event streams for each backtest run
+- [ ] Support variable playback speed (fast-forward through quiet periods)
 
-### 7.3 Performance Metrics
+### 8.3 Simulated Execution Models
+- [ ] Implement fill models:
+  - Immediate fill (optimistic)
+  - OHLC-based fill (check if price reached)
+  - Slippage model (percentage or fixed)
+  - Volume-based partial fills
+- [ ] Add realistic commission structures
+- [ ] Implement market impact modeling
+- [ ] Add bid-ask spread simulation
+- [ ] Handle rejected orders (insufficient funds, invalid prices)
+
+### 8.4 Performance Metrics
 - [ ] Calculate standard metrics:
   - Total return, annualized return
   - Sharpe ratio, Sortino ratio
@@ -449,21 +691,27 @@ Build a high-performance, multi-threaded trading system with:
 - [ ] Implement equity curve plotting
 - [ ] Add trade-by-trade analysis
 - [ ] Generate HTML report with charts
+- [ ] Use event streams for detailed trade analysis
+- [ ] Compare metrics across different parameter sets
 
-### 7.4 Strategy Optimization
+### 8.5 Strategy Optimization
 - [ ] Implement parameter grid search
 - [ ] Add walk-forward analysis
 - [ ] Implement Monte Carlo simulation
 - [ ] Add overfitting detection (train/test split)
 - [ ] Create optimization report comparing parameter sets
+- [ ] Save event streams for each parameter combination
+- [ ] Enable replay comparison of different parameters
+- [ ] Parallelize backtests across parameter combinations
+- [ ] Use historical mode runners in parallel for optimization
 
-**Deliverable**: Robust backtesting with comprehensive performance analysis
+**Deliverable**: Robust backtesting framework that uses unified runner architecture in historical mode, with comprehensive performance analysis and event capture for replay
 
 ---
 
-## Phase 8: Configuration & Deployment (Week 9-10)
+## Phase 9: Configuration & Deployment (Week 10-11)
 
-### 8.1 Configuration System
+### 9.1 Configuration System
 - [ ] Design TOML/YAML config format:
   ```toml
   [engine]
@@ -476,6 +724,12 @@ Build a high-performance, multi-threaded trading system with:
   [risk]
   max_account_risk = 0.02
   max_position_size = 0.1
+  
+  [event_sourcing]
+  enabled = true
+  storage_mode = "full"  # or "delta"
+  snapshot_interval = 100  # for delta mode
+  include_indicators = false  # save space by recomputing
   
   [[strategies]]
   name = "range_breakout"
@@ -491,26 +745,44 @@ Build a high-performance, multi-threaded trading system with:
 - [ ] Add config hot-reloading
 - [ ] Support environment variable overrides
 
-### 8.2 Logging & Monitoring
+### 9.2 Logging & Monitoring
 - [ ] Implement structured logging with `tracing`
 - [ ] Add different log levels per component
 - [ ] Implement log rotation
 - [ ] Add performance tracing (state transitions, indicator calls)
 - [ ] Create monitoring dashboard data export
 
-### 8.3 CLI Interface
+### 9.3 CLI Interface
 - [ ] Implement command-line interface:
   ```bash
+  # Live trading
   trading-engine run --config config.toml
-  trading-engine backtest --strategy range.lua --symbol BTCUSDT --start 2024-01-01
+  trading-engine run-live --symbol BTCUSDT --strategy range.lua
+  
+  # Historical/Backtesting
+  trading-engine backtest --strategy range.lua --symbol BTCUSDT --start 2024-01-01 --end 2024-03-01
+  trading-engine backtest --config backtest.toml --speed 100
+  
+  # Mixed mode (live + historical simultaneously)
+  trading-engine run --config mixed-mode.toml
+  
+  # Utilities
   trading-engine validate --strategy range.lua
   trading-engine indicators --list
   trading-engine download-data --source binance --symbol BTCUSDT --days 90
+  
+  # Replay
+  trading-engine replay --session abc123 --speed 10
+  trading-engine inspect-event --session abc123 --sequence 150
+  trading-engine compare --session1 abc123 --session2 def456
   ```
 - [ ] Add interactive REPL for testing strategies
 - [ ] Implement status monitoring commands
+- [ ] Add replay controls (play, pause, seek, speed)
+- [ ] Show mode (Live/Historical) in status output
+- [ ] Add progress bars for historical mode
 
-### 8.4 Deployment Preparation
+### 9.4 Deployment Preparation
 - [ ] Create Docker container
 - [ ] Write deployment documentation
 - [ ] Add systemd service file
@@ -521,37 +793,48 @@ Build a high-performance, multi-threaded trading system with:
 
 ---
 
-## Phase 9: Live Trading Integration (Week 10-11)
+## Phase 10: Live Trading Integration (Week 11-12)
 
-### 9.1 Broker API Integration
+### 10.1 Broker API Integration
 - [ ] Extend existing Binance/Alpaca sources with trading capabilities
-- [ ] Implement order placement for Binance:
+- [ ] Implement `LiveExecution` engine for Binance:
   ```rust
-  impl BinanceSource {
-      async fn place_order(&mut self, order: Order) -> Result<OrderId>;
+  pub struct BinanceLiveExecution {
+      client: BinanceClient,
+      api_key: String,
+      api_secret: String,
+  }
+  
+  impl ExecutionEngine for BinanceLiveExecution {
+      async fn submit_order(&mut self, order: Order) -> Result<OrderId>;
       async fn cancel_order(&mut self, order_id: OrderId) -> Result<()>;
   }
   ```
-- [ ] Implement order placement for Alpaca
+- [ ] Implement `LiveExecution` engine for Alpaca
 - [ ] Handle authentication and session management
 - [ ] Implement reconnection logic
 - [ ] Add rate limiting to respect exchange limits
+- [ ] Use unified runner architecture with Live mode
 
-### 9.2 Real-Time Data Feed (Already Implemented)
+### 10.2 Real-Time Data Feed (Already Implemented)
 - [ ] Verify WebSocket stability under load
 - [ ] Add data quality monitoring
 - [ ] Handle market hours for Alpaca (stocks)
 - [ ] Add 24/7 monitoring for Binance (crypto)
+- [ ] Enable event capture during live trading
+- [ ] Store live trading sessions as event streams
+- [ ] Ensure `next_tick()` blocking behavior is efficient
 
-### 9.3 Live Execution Safety
+### 10.3 Live Execution Safety
 - [ ] Implement order preview before submission
 - [ ] Add maximum order size validation
 - [ ] Implement kill switch (emergency stop all)
 - [ ] Add duplicate order prevention
 - [ ] Implement order reconciliation
 - [ ] Add position limits enforcement
+- [ ] Log all execution decisions to event stream
 
-### 9.4 Live Monitoring
+### 10.4 Live Monitoring
 - [ ] Implement real-time position dashboard
 - [ ] Add alert system (email, SMS, webhook)
 - [ ] Create performance tracking dashboard
@@ -562,31 +845,34 @@ Build a high-performance, multi-threaded trading system with:
 
 ---
 
-## Phase 10: Testing & Optimization (Week 11-12)
+## Phase 11: Testing & Optimization (Week 12-13)
 
-### 10.1 Unit Testing
+### 11.1 Unit Testing
 - [ ] Achieve >80% code coverage for Rust core
 - [ ] Test all indicator calculations vs known values
 - [ ] Test state machine transitions exhaustively
 - [ ] Test Lua strategy loading and error handling
 - [ ] Test concurrent access patterns
 
-### 10.2 Integration Testing
+### 11.2 Integration Testing
 - [ ] Test end-to-end strategy execution
 - [ ] Test multi-symbol coordination
 - [ ] Test Binance/Alpaca API integration
 - [ ] Test backtesting accuracy
 - [ ] Test configuration loading
+- [ ] Test event capture and replay accuracy
+- [ ] Verify replay produces identical results to original run
 
-### 10.3 Performance Optimization
+### 11.3 Performance Optimization
 - [ ] Profile indicator calculations
 - [ ] Optimize hot paths with `perf` and `flamegraph`
 - [ ] Reduce memory allocations
 - [ ] Optimize Lua-Rust data marshalling
 - [ ] Benchmark state machine throughput
 - [ ] Test with extreme market data rates
+- [ ] Optimize event serialization overhead
 
-### 10.4 Stress Testing
+### 11.4 Stress Testing
 - [ ] Test with 100+ concurrent symbols
 - [ ] Simulate market data spikes
 - [ ] Test memory usage under load
@@ -597,9 +883,9 @@ Build a high-performance, multi-threaded trading system with:
 
 ---
 
-## Phase 11: Documentation & Polish (Week 12-13)
+## Phase 12: Documentation & Polish (Week 13-14)
 
-### 11.1 User Documentation
+### 12.1 User Documentation
 - [ ] Write comprehensive README
 - [ ] Create "Getting Started" tutorial for Binance
 - [ ] Create "Getting Started" tutorial for Alpaca
@@ -607,21 +893,25 @@ Build a high-performance, multi-threaded trading system with:
 - [ ] Write indicator reference documentation
 - [ ] Create configuration guide
 - [ ] Add troubleshooting guide
+- [ ] Document replay system and debugging workflows
 
-### 11.2 Developer Documentation
+### 12.2 Developer Documentation
 - [ ] Document architecture decisions
 - [ ] Create API reference for Rust components
 - [ ] Document Lua strategy API
 - [ ] Add contributing guidelines
 - [ ] Create development setup guide
+- [ ] Document event sourcing architecture
+- [ ] Add replay system internals documentation
 
-### 11.3 Example Strategies
+### 12.3 Example Strategies
 - [ ] Create 5+ fully documented example strategies
 - [ ] Add backtested performance reports for each
 - [ ] Create strategy template with best practices
 - [ ] Document common pitfalls
+- [ ] Include replay sessions for each example
 
-### 11.4 Final Polish
+### 12.4 Final Polish
 - [ ] Improve error messages
 - [ ] Add input validation everywhere
 - [ ] Implement helpful CLI hints
@@ -632,33 +922,335 @@ Build a high-performance, multi-threaded trading system with:
 
 ---
 
-## Phase 12: Advanced Features (Week 13+)
+## Phase 13: Advanced Features (Week 14+)
 
-### 12.1 Advanced Strategy Features
+### 13.1 Advanced Strategy Features
 - [ ] Multi-timeframe analysis support
 - [ ] Portfolio optimization algorithms
 - [ ] Machine learning integration hooks
 - [ ] Sentiment analysis integration
 - [ ] News-based trading signals
 
-### 12.2 Visualization & Analytics
+### 13.2 Visualization & Analytics
 - [ ] Web-based dashboard (React/Svelte)
 - [ ] Real-time chart visualization
 - [ ] Interactive backtesting results
 - [ ] Strategy comparison tools
 - [ ] Advanced portfolio analytics
+- [ ] **Replay Viewer UI**:
+  - Visual timeline with state transitions
+  - Interactive chart with trade markers
+  - Scrubbing/seeking controls
+  - Speed controls (1x, 5x, 10x, 100x)
+  - State inspector (context, indicators at any point)
+  - Side-by-side comparison of multiple sessions
+  - **AI reasoning visualization** (when integrated)
 
-### 12.3 Distributed Computing
+### 13.3 AI Agent Integration (Advanced)
+
+**Prerequisites**: Stable architecture, event sourcing working, sufficient historical data collected
+
+#### 13.3.1 Contextual Memory Accumulation (Foundation)
+- [ ] Extend `Context` to support agent state:
+  ```rust
+  pub struct CloseWatchContext {
+      pub setup_reason: String,
+      pub observations: Vec<Observation>,
+      pub confidence_history: Vec<f64>,
+      pub current_hypothesis: EntryHypothesis,
+      pub alternative_scenarios: Vec<Scenario>,
+      pub entry_confidence: f64,
+  }
+  
+  pub struct Observation {
+      pub timestamp: i64,
+      pub observation_type: ObservationType,
+      pub data: Value,
+      pub confidence_impact: f64,
+  }
+  
+  pub struct EntryHypothesis {
+      pub prediction: String,
+      pub supporting_evidence: Vec<String>,
+      pub contradicting_evidence: Vec<String>,
+      pub confidence: f64,
+  }
+  ```
+- [ ] Implement observation tracking in CloseWatch state
+- [ ] Add confidence scoring system
+- [ ] Create Lua API for agent reasoning:
+  ```lua
+  function filter_commitment(market_data, context, indicators)
+      -- Initialize hypothesis on first CloseWatch entry
+      if not context.hypothesis then
+          context.hypothesis = {
+              prediction = "Breakout will succeed",
+              supporting_evidence = {},
+              contradicting_evidence = {},
+              confidence = 0.5
+          }
+      end
+      
+      -- Accumulate observations
+      -- Update confidence based on evidence
+      -- Return entry when confidence threshold met
+  end
+  ```
+- [ ] Implement reasoning chain serialization in events
+- [ ] Test with simple rule-based agent
+
+#### 13.3.2 Multi-Criteria Decision Matrix
+- [ ] Implement `DecisionMatrix` struct:
+  ```rust
+  pub struct DecisionMatrix {
+      pub criteria: Vec<Criterion>,
+      pub weights: HashMap<String, f64>,
+      pub threshold: f64,
+  }
+  
+  pub struct Criterion {
+      pub name: String,
+      pub satisfied: bool,
+      pub confidence: f64,
+      pub observations: Vec<String>,
+  }
+  ```
+- [ ] Add weighted evaluation system
+- [ ] Create configurable criteria and weights
+- [ ] Implement criterion satisfaction tracking
+- [ ] Add matrix evaluation to Lua API
+- [ ] Visualize decision matrix in replay viewer
+
+#### 13.3.3 Bayesian Belief Update System
+- [ ] Implement `BayesianAgent`:
+  ```rust
+  pub struct BayesianAgent {
+      pub prior_probability: f64,
+      pub likelihoods: HashMap<String, Likelihood>,
+      pub posterior_probability: f64,
+      pub evidence: Vec<Evidence>,
+  }
+  ```
+- [ ] Add Bayesian update logic
+- [ ] Define likelihood ratios for common observations
+- [ ] Calibrate likelihoods from historical data
+- [ ] Implement evidence accumulation
+- [ ] Expose Bayesian reasoning to Lua
+- [ ] Add belief update visualization
+
+#### 13.3.4 Neural Network Predictor Integration
+- [ ] Add ML dependencies (ONNX runtime or `tract`):
+  ```toml
+  [dependencies]
+  tract-onnx = "0.21"
+  ndarray = "0.15"
+  ```
+- [ ] Implement `NeuralPredictor`:
+  ```rust
+  pub struct NeuralPredictor {
+      model: Model,
+      input_window: usize,
+      feature_buffer: VecDeque<Vec<f32>>,
+  }
+  
+  pub struct Prediction {
+      pub entry_quality: f64,
+      pub expected_return: f64,
+      pub confidence: f64,
+      pub attention_weights: Vec<f64>,
+      pub reasoning: Vec<String>,
+  }
+  ```
+- [ ] Implement feature engineering pipeline:
+  - Price momentum features
+  - Volume features
+  - Indicator features
+  - Time-based features
+  - Market regime features
+- [ ] Load pre-trained ONNX models
+- [ ] Implement online inference
+- [ ] Add attention mechanism interpretation
+- [ ] Generate human-readable explanations
+
+#### 13.3.5 Model Training Pipeline
+- [ ] Create training data extraction from event streams
+- [ ] Label historical entries (success/failure)
+- [ ] Implement feature extraction for training:
+  ```python
+  # Python training pipeline
+  import torch
+  import pandas as pd
+  
+  def extract_features_from_events(event_stream):
+      # Extract market state at CloseWatch entry
+      # Calculate subsequent trade outcome
+      # Return features + labels
+      pass
+  ```
+- [ ] Train entry quality prediction model
+- [ ] Train expected return prediction model
+- [ ] Implement attention-based explainable architecture
+- [ ] Export models to ONNX format
+- [ ] Add model versioning and A/B testing
+
+#### 13.3.6 Hybrid Agent (Rules + ML)
+- [ ] Implement `HybridAgent`:
+  ```rust
+  pub struct HybridAgent {
+      rule_engine: RuleEngine,
+      ml_scorer: NeuralPredictor,
+      thoughts: Vec<Thought>,
+  }
+  
+  pub struct Thought {
+      pub timestamp: i64,
+      pub rule_evaluation: RuleResult,
+      pub ml_score: f64,
+      pub combined_confidence: f64,
+      pub explanation: String,
+  }
+  ```
+- [ ] Combine rule-based and ML predictions
+- [ ] Weight combination (configurable rule vs ML balance)
+- [ ] Implement reasoning chain tracking
+- [ ] Add explanation aggregation
+- [ ] Test hybrid agent vs pure rules vs pure ML
+
+#### 13.3.7 Agent State Integration
+- [ ] Integrate agent state into `StateMachine`:
+  ```rust
+  pub struct StateMachine {
+      // ... existing fields
+      ai_agent: Option<Box<dyn Agent>>,
+      prediction_history: Vec<Prediction>,
+  }
+  ```
+- [ ] Add agent update in CloseWatch state
+- [ ] Store agent predictions in context
+- [ ] Serialize agent reasoning in event stream
+- [ ] Enable agent state recovery from events
+
+#### 13.3.8 Lua API for Agent Interaction
+- [ ] Expose agent predictions to Lua:
+  ```lua
+  function filter_commitment(market_data, context, indicators)
+      -- Access agent's current thoughts
+      if ai_agent then
+          context.ai_thought = ai_agent.current_hypothesis
+          context.ai_confidence = ai_agent.confidence
+          
+          -- Combine with traditional logic
+          if rules_satisfied() and ai_agent.confidence > 0.8 then
+              return enter_trade(ai_agent.reasoning)
+          end
+      end
+  end
+  ```
+- [ ] Add agent control functions
+- [ ] Implement agent parameter tuning
+- [ ] Add real-time agent state inspection
+
+#### 13.3.9 Agent Performance Analysis
+- [ ] Track agent prediction accuracy
+- [ ] Measure calibration (are 80% confidence predictions right 80% of time?)
+- [ ] Compare agent decisions vs actual outcomes
+- [ ] Generate agent performance reports
+- [ ] Implement continuous learning pipeline
+- [ ] Add agent A/B testing framework
+
+#### 13.3.10 Visualization & Debugging
+- [ ] Replay viewer shows agent reasoning:
+  - Hypothesis evolution over time
+  - Confidence trajectory
+  - Evidence accumulation
+  - Decision matrix state
+  - ML attention heatmaps
+- [ ] Add agent thought timeline
+- [ ] Visualize reasoning chains
+- [ ] Compare agent reasoning between successful/failed trades
+- [ ] Create "agent transparency report"
+
+#### 13.3.11 Configuration & Deployment
+- [ ] Add agent configuration:
+  ```toml
+  [agent]
+  enabled = true
+  type = "hybrid"  # or "rules", "bayesian", "neural", "hybrid"
+  
+  [agent.neural]
+  model_path = "models/entry_predictor_v1.onnx"
+  confidence_threshold = 0.8
+  
+  [agent.hybrid]
+  rule_weight = 0.6
+  ml_weight = 0.4
+  explanation_required = true
+  ```
+- [ ] Implement agent versioning
+- [ ] Add model hot-swapping
+- [ ] Create agent rollback mechanism
+- [ ] Monitor agent performance in production
+
+**Deliverable**: Optional AI agent system that operates in CloseWatch state to accumulate observations, reason about entry quality, and provide explainable predictions. Fully integrated with event sourcing for analysis and continuous improvement.
+
+### 13.4 Distributed Computing
 - [ ] Support for distributed backtesting
 - [ ] Cloud deployment (AWS/GCP)
 - [ ] Horizontal scaling for live trading
 - [ ] Message queue integration (Kafka/RabbitMQ)
 
-### 12.4 Community & Ecosystem
+### 13.4 Distributed Computing
+- [ ] Support for distributed backtesting
+- [ ] Cloud deployment (AWS/GCP)
+- [ ] Horizontal scaling for live trading
+- [ ] Message queue integration (Kafka/RabbitMQ)
+- [ ] Distributed agent training pipeline
+
+### 13.5 Community & Ecosystem
 - [ ] Create plugin system for custom indicators
 - [ ] Build strategy marketplace
 - [ ] Add community strategy sharing
 - [ ] Create Discord/forum for users
+- [ ] Share replay sessions for educational purposes
+- [ ] Agent model sharing and leaderboards
+
+---
+
+## Unified Runner Architecture Benefits
+
+The **Live/Historical unified runner architecture** provides several critical advantages:
+
+### 1. **Mechanical Equivalence**
+- Same `SymbolRunner` code executes in both modes
+- Same state machine logic
+- Same strategy execution
+- Only difference: `next_tick()` blocks (live) vs returns immediately (historical)
+
+### 2. **Testing Confidence**
+- Test strategies in historical mode with 100% confidence they'll work the same in live
+- No "backtesting doesn't match live" discrepancies
+- Identical code paths eliminate surprises
+
+### 3. **Development Workflow**
+- Develop strategies using historical data (fast iteration)
+- Switch to paper trading (live mode, simulated execution)
+- Deploy to production (live mode, real execution)
+- All using the same runner infrastructure
+
+### 4. **Mixed Mode Operation**
+- Run live trading on some symbols while backtesting others
+- Use same monitoring infrastructure
+- Share indicator calculations and state machine logic
+
+### 5. **Debugging**
+- Event sourcing works identically in both modes
+- Can replay live sessions in historical mode
+- Use historical mode to reproduce live issues
+
+### 6. **Performance Optimization**
+- Historical mode can run at 10x, 100x, or unlimited speed
+- Live mode respects real-time constraints
+- Same optimization benefits both modes
 
 ---
 
@@ -686,6 +1278,13 @@ Build a high-performance, multi-threaded trading system with:
 - [ ] Can connect to Binance in <5 minutes
 - [ ] Can connect to Alpaca paper trading in <10 minutes
 
+### AI Agent Metrics (Phase 13.3)
+- [ ] Agent prediction accuracy >65% (better than random)
+- [ ] Agent calibration error <10% (confidence matches reality)
+- [ ] Explainability: 100% of decisions have reasoning chains
+- [ ] Latency: Agent inference <50ms per update
+- [ ] Agent improves win rate by >5% vs pure rules
+
 ---
 
 ## Risk Mitigation
@@ -708,13 +1307,28 @@ Build a high-performance, multi-threaded trading system with:
 
 ### Project Risks
 - **Risk**: Scope creep
-  - **Mitigation**: Stick to roadmap, defer advanced features to Phase 12
+  - **Mitigation**: Stick to roadmap, defer advanced features to Phase 13
 
 - **Risk**: Underestimated complexity
   - **Mitigation**: Build Phase 1 (data sources) and Phase 2 (indicators) in parallel to validate approach
 
 - **Risk**: Exchange rate limits
   - **Mitigation**: Implement proper rate limiting, use WebSocket instead of polling, add backoff strategies
+
+- **Risk**: Historical mode doesn't accurately represent live behavior
+  - **Mitigation**: Unified runner architecture ensures mechanical equivalence. Differences only in execution simulation (slippage, fills). Validate with paper trading before live deployment.
+
+- **Risk**: Performance degradation with event capture enabled
+  - **Mitigation**: Benchmark early, make event capture optional, optimize serialization, use delta mode for storage efficiency
+
+- **Risk**: AI agent makes poor predictions leading to losses (Phase 13.3)
+  - **Mitigation**: Start with hybrid approach (rules + ML). Require minimum confidence thresholds. Extensive backtesting before live deployment. Implement kill switches for agent underperformance. Always maintain human override capability.
+
+- **Risk**: AI agent becomes a "black box" without interpretability
+  - **Mitigation**: Use attention mechanisms for explainability. Require reasoning chains for all decisions. Implement agent transparency reports. Compare agent decisions with rule-based baseline. Store all agent state in event streams for post-analysis.
+
+- **Risk**: Model drift as market conditions change
+  - **Mitigation**: Continuous monitoring of agent prediction accuracy. Regular retraining on recent data. A/B test new models before deployment. Implement online learning where appropriate. Track calibration metrics.
 
 ---
 
@@ -784,12 +1398,13 @@ Build a high-performance, multi-threaded trading system with:
 | 4 | 2 weeks | Lua strategy integration |
 | 5 | 2 weeks | Multi-symbol threading |
 | 6 | 2 weeks | Execution & risk management |
-| 7 | 2 weeks | Backtesting framework |
-| 8 | 2 weeks | Configuration & deployment |
-| 9 | 2 weeks | Live trading integration |
-| 10 | 2 weeks | Testing & optimization |
-| 11 | 2 weeks | Documentation |
-| **Total** | **~3 months** | **Production system** |
+| 7 | 2 weeks | Event sourcing & replay system |
+| 8 | 2 weeks | Backtesting framework |
+| 9 | 2 weeks | Configuration & deployment |
+| 10 | 2 weeks | Live trading integration |
+| 11 | 2 weeks | Testing & optimization |
+| 12 | 2 weeks | Documentation |
+| **Total** | **~3.5 months** | **Production system** |
 
 ---
 
@@ -802,9 +1417,13 @@ Build a high-performance, multi-threaded trading system with:
 5. **Week 4**: Complete state machine core and test with live Binance data streams
 6. **Week 5**: Begin Lua integration and test strategies on crypto markets (24/7 availability helps development)
 7. **Week 6**: Review progress, adjust timeline if needed
+8. **Week 8**: Implement event sourcing - critical for debugging and analysis
 
-**Critical Path**: Phase 1 (Market Data) is now the foundation - getting Binance and Alpaca working early enables all subsequent testing and development with real market data rather than simulated data.
+**Critical Path**: Phase 1 (Market Data) is now the foundation - getting Binance and Alpaca working early enables all subsequent testing and development with real market data rather than simulated data. Phase 7 (Event Sourcing) becomes crucial for debugging and performance analysis. Phase 13.3 (AI Agent) should only be attempted after the core system is stable and producing reliable event streams for training data.
+
+**Development Philosophy**: Build a solid, reliable foundation first. The AI agent integration in Phase 13.3 is powerful but optional - the system should work excellently with rule-based strategies before adding ML complexity. Event sourcing throughout the project enables later AI integration by providing high-quality training data.
 
 **Start Date**: [Your start date]
 **Target MVP Date**: [+8 weeks]
-**Target Production**: [+13 weeks]
+**Target Production**: [+14 weeks]
+**Target AI Integration**: [+16+ weeks] (after core system proven stable)
