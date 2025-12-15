@@ -7,51 +7,76 @@ Build a high-performance, multi-threaded trading system with:
 - **OCaml** for pure functional indicators
 - Multi-symbol support with per-symbol threading
 
+## Current Status (Updated: 2025-12-15)
+
+**Phase 0: Project Setup** ✅ **COMPLETE**
+- ✅ Rust project initialized with full dependency stack
+- ✅ Project structure created (engine-core, docs, tests)
+- ✅ Version control with .gitignore
+
+**Phase 1: Market Data Infrastructure** 🚧 **IN PROGRESS** (60% complete)
+- ✅ Core data structures (MarketData, MarketDataWindow)
+- ✅ Data source abstraction (MarketDataSource trait)
+- ✅ SimulatedFeed implementation
+- ✅ Thread-safe storage (MarketDataStorage)
+- ✅ Configuration system
+- 🚧 Binance WebSocket (Next: Day 4-5)
+- 📅 Alpaca integration (Optional)
+
+**Documentation** ✅ **COMPLETE**
+- ✅ Comprehensive Rustdoc comments (10 tested examples)
+- ✅ Architecture overview
+- ✅ Getting started guide
+- ✅ 3 Architecture Decision Records
+
+**Next Milestone:** Binance WebSocket Integration (Day 4-5)
+
 ---
 
-## Phase 0: Project Setup & Foundation (Week 1)
+## Phase 0: Project Setup & Foundation (Week 1) ✅ COMPLETE
 
-### 0.1 Development Environment
-- [ ] Set up Rust project with `cargo new trading-engine`
-- [ ] Configure OCaml environment with `opam` and `dune`
-- [ ] Set up Lua development environment
-- [ ] Create workspace structure:
+### 0.1 Development Environment ✅
+- [x] Set up Rust project with `cargo new trading-engine` (named `engine-core`)
+- [ ] Configure OCaml environment with `opam` and `dune` (Deferred to Phase 2)
+- [ ] Set up Lua development environment (Deferred to Phase 4)
+- [x] Create workspace structure:
   ```
-  trading-engine/
-  ├── rust-core/          # Main engine
+  trading-simulator/
+  ├── engine-core/        # Main engine (renamed from rust-core)
   ├── ocaml-indicators/   # Indicator library
   ├── lua-strategies/     # Strategy scripts
-  ├── tests/             # Integration tests
-  └── docs/              # Documentation
+  ├── tests/              # Integration tests
+  └── docs/               # Documentation
   ```
 
-### 0.2 Core Dependencies
-- [ ] Add Rust dependencies to `Cargo.toml`:
+### 0.2 Core Dependencies ✅
+- [x] Add Rust dependencies to `Cargo.toml`:
   - `tokio` (async runtime)
-  - `mlua` (Lua embedding)
+  - ~~`mlua` (Lua embedding)~~ (Deferred to Phase 4)
   - `serde` (serialization)
   - `chrono` (time handling)
   - `crossbeam` (concurrent data structures)
   - `tracing` (logging)
   - `tokio-tungstenite` (WebSocket for market data)
   - `async-trait` (async traits)
-- [ ] Set up OCaml `dune` project
-- [ ] Configure FFI bridge between Rust and OCaml
+  - `parking_lot` (fast locks)
+  - `thiserror` (error handling)
+  - `anyhow` (error propagation)
+  - `rand` (SimulatedFeed)
+- [ ] Set up OCaml `dune` project (Deferred to Phase 2)
+- [ ] Configure FFI bridge between Rust and OCaml (Deferred to Phase 2)
 
 ### 0.3 Version Control & CI
-- [ ] Initialize git repository
-- [ ] Create `.gitignore` for Rust, OCaml, Lua
-- [ ] Set up GitHub Actions for CI:
-  - Rust tests and clippy
-  - OCaml compilation and tests
-  - Integration tests
+- [x] Initialize git repository (already initialized as submodule)
+- [x] Create `.gitignore` for Rust, OCaml, Lua
+- [ ] Set up GitHub Actions for CI (Deferred - not needed for Day 1)
 
 ---
 
-## Phase 1: Market Data Infrastructure (Week 2-3)
+## Phase 1: Market Data Infrastructure (Week 2-3) - IN PROGRESS
 
-### 1.1 Core Data Structures
-- [ ] Define `MarketData` struct in Rust:
+### 1.1 Core Data Structures ✅ COMPLETE
+- [x] Define `MarketData` struct in Rust:
   ```rust
   pub struct MarketData {
       symbol: String,
@@ -65,12 +90,15 @@ Build a high-performance, multi-threaded trading system with:
       ask: f64,
   }
   ```
-- [ ] Implement `MarketDataWindow` with circular buffer
-- [ ] Add time-series query methods (`high()`, `low()`, `avg_volume()`)
-- [ ] Write comprehensive unit tests
+- [x] Implement `MarketDataWindow` with circular buffer (`VecDeque`)
+- [x] Add time-series query methods (`high()`, `low()`, `avg_volume()`)
+- [x] Write comprehensive unit tests (4 tests passing)
+- [x] Add full Rustdoc documentation with examples
+- [x] Implement `validate()` method for data consistency checks
+- [x] Add `mid_price()` helper method
 
-### 1.2 Market Data Source Abstraction
-- [ ] Design abstract `MarketDataSource` trait:
+### 1.2 Market Data Source Abstraction ✅ COMPLETE
+- [x] Design abstract `MarketDataSource` trait:
   ```rust
   #[async_trait]
   pub trait MarketDataSource: Send + Sync {
@@ -81,9 +109,9 @@ Build a high-performance, multi-threaded trading system with:
       fn source_name(&self) -> &str;
   }
   ```
-- [ ] Implement `SimulatedFeed` for testing (replays historical data)
-- [ ] Implement `CSVFeed` for backtesting from files
-- [ ] Add thread-safe data distribution to symbol runners
+- [x] Implement `SimulatedFeed` for testing (random walk generation)
+- [ ] Implement `CSVFeed` for backtesting from files (Deferred to Phase 8)
+- [ ] Add thread-safe data distribution to symbol runners (Deferred to Phase 5)
 
 ### 1.3 Binance WebSocket Integration (Primary Crypto Source)
 - [ ] Add dependencies: `tokio-tungstenite`, `serde_json`, `url`
@@ -146,28 +174,31 @@ Build a high-performance, multi-threaded trading system with:
 - [ ] Test with BTC-USD, ETH-USD pairs
 - [ ] Compare data quality with Binance
 
-### 1.6 Data Source Configuration
-- [ ] Create configuration system for selecting data source:
+### 1.6 Data Source Configuration ✅ COMPLETE
+- [x] Create configuration system for selecting data source:
   ```toml
   [data_source]
   type = "binance"  # or "alpaca", "coinbase", "simulated"
-  
+
   [data_source.binance]
   # Binance-specific config
-  
+
   [data_source.alpaca]
   api_key_env = "APCA_API_KEY_ID"
   secret_key_env = "APCA_API_SECRET_KEY"
   ```
-- [ ] Implement data source factory pattern
-- [ ] Add validation for required credentials per source
+- [x] Implement configuration types (`DataSourceConfig`, `EngineConfig`)
+- [ ] Implement data source factory pattern (Deferred to Day 7)
+- [ ] Add validation for required credentials per source (Deferred to Day 7)
 
-### 1.7 Data Storage
-- [ ] Create in-memory storage with `Arc<RwLock<HashMap>>`
-- [ ] Implement windowed storage (only keep last N datapoints)
-- [ ] Add serialization for market data snapshots
-- [ ] Test concurrent read/write performance
-- [ ] Add optional persistence to disk for replay
+### 1.7 Data Storage ✅ COMPLETE
+- [x] Create in-memory storage with `Arc<RwLock<HashMap>>` (using `parking_lot`)
+- [x] Implement windowed storage (only keep last N datapoints)
+- [x] Add `MarketDataStorage` with thread-safe access
+- [x] Implement `Clone` for storage (via Arc)
+- [ ] Add serialization for market data snapshots (Deferred to Phase 7)
+- [ ] Test concurrent read/write performance (Deferred to Day 6)
+- [ ] Add optional persistence to disk for replay (Deferred to Phase 7)
 
 ### 1.8 Historical Data Download
 - [ ] Implement Binance REST API client for historical klines

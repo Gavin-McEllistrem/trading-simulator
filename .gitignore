@@ -1,0 +1,50 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# OCaml
+_build/
+*.install
+*.merlin
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+
+# Lua compiled files
+*.luac
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+*.log
+
+# Local config and data
+.env
+config.local.toml
+*.local.toml
+data/
+*.db
+*.sqlite
+
+# Build artifacts
+dist/
+build/
+
+# Test artifacts
+*.profraw
+*.profdata
