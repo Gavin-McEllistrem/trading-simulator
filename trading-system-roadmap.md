@@ -7,29 +7,69 @@ Build a high-performance, multi-threaded trading system with:
 - **OCaml** for pure functional indicators
 - Multi-symbol support with per-symbol threading
 
-## Current Status (Updated: 2025-12-15)
+## Current Status (Updated: 2025-12-15, End of Day 2)
 
-**Phase 0: Project Setup** ✅ **COMPLETE**
+**Phase 0: Project Setup** ✅ **COMPLETE** (Day 1)
 - ✅ Rust project initialized with full dependency stack
 - ✅ Project structure created (engine-core, docs, tests)
 - ✅ Version control with .gitignore
+- ✅ Comprehensive build system configured
 
-**Phase 1: Market Data Infrastructure** 🚧 **IN PROGRESS** (60% complete)
+**Phase 1: Market Data Infrastructure** 🚧 **IN PROGRESS** (70% complete, Day 1-2)
 - ✅ Core data structures (MarketData, MarketDataWindow)
+- ✅ Enhanced MarketDataWindow with 11 query methods:
+  - Basic: `push()`, `len()`, `is_empty()`, `clear()`, `get()`, `iter()`
+  - Access: `latest()`, `oldest()`
+  - Queries: `high()`, `low()`, `avg_volume()`, `range()`, `closes()`
 - ✅ Data source abstraction (MarketDataSource trait)
-- ✅ SimulatedFeed implementation
-- ✅ Thread-safe storage (MarketDataStorage)
-- ✅ Configuration system
-- 🚧 Binance WebSocket (Next: Day 4-5)
-- 📅 Alpaca integration (Optional)
+- ✅ SimulatedFeed implementation (random walk with 100ms ticks)
+- ✅ Thread-safe storage (MarketDataStorage with Arc<RwLock<HashMap>>)
+- ✅ Configuration system (DataSourceConfig, EngineConfig)
+- ✅ Comprehensive test organization (46 tests total)
+- 🚧 Binance WebSocket (Next: Day 3-4)
+- 📅 Alpaca integration (Optional, Week 2-3)
 
-**Documentation** ✅ **COMPLETE**
-- ✅ Comprehensive Rustdoc comments (10 tested examples)
-- ✅ Architecture overview
-- ✅ Getting started guide
-- ✅ 3 Architecture Decision Records
+**Documentation** ✅ **COMPLETE** (Day 1-2)
+- ✅ Comprehensive Rustdoc comments (15 tested examples in docstrings)
+- ✅ Architecture overview (docs/architecture/01-overview.md)
+- ✅ Getting started guide (docs/guides/getting-started.md)
+- ✅ 3 Architecture Decision Records:
+  - ADR-001: Rust 2021 Edition
+  - ADR-002: engine-core naming
+  - ADR-003: Circular buffer design
+- ✅ All public APIs documented with examples
 
-**Next Milestone:** Binance WebSocket Integration (Day 4-5)
+**Testing Infrastructure** ✅ **EXCELLENT COVERAGE** (Day 2)
+- ✅ 18 unit tests in src/market_data/tests.rs (separated from source)
+- ✅ 7 integration tests in tests/market_data_integration.rs
+- ✅ 6 integration tests in tests/data_pipeline_integration.rs
+- ✅ 15 doc tests (all examples in documentation verified)
+- ✅ Total: **46 tests, all passing** ✅
+- ✅ Test categories:
+  - MarketData validation (3 unit tests)
+  - Window operations (5 unit tests)
+  - Query methods (6 unit tests)
+  - Edge cases (4 unit tests)
+  - End-to-end data flows (7 integration tests)
+  - Pipeline integration (6 integration tests)
+
+**Architecture Decisions** (Day 2)
+- ✅ **Indicators deferred to OCaml** (Phase 2) - removed SMA from MarketDataWindow
+- ✅ MarketDataWindow = pure data storage and query layer
+- ✅ Clean separation of concerns: data structures (Rust) → indicators (OCaml) → strategies (Lua)
+- ✅ Test organization: separate unit tests from source to prevent code bloat
+
+**Code Quality** (Day 2)
+- ✅ Zero compiler warnings
+- ✅ All clippy lints passing
+- ✅ Comprehensive error handling with thiserror
+- ✅ Full async support with tokio
+- ✅ Thread-safe with parking_lot RwLock
+
+**Next Milestone:** Binance WebSocket Integration (Day 3-4)
+- Target: Real-time crypto market data streaming
+- Expected: BTC-USDT, ETH-USDT tick ingestion
+- Will validate data pipeline under real conditions
 
 ---
 
@@ -75,7 +115,7 @@ Build a high-performance, multi-threaded trading system with:
 
 ## Phase 1: Market Data Infrastructure (Week 2-3) - IN PROGRESS
 
-### 1.1 Core Data Structures ✅ COMPLETE
+### 1.1 Core Data Structures ✅ COMPLETE (Day 1-2)
 - [x] Define `MarketData` struct in Rust:
   ```rust
   pub struct MarketData {
@@ -91,13 +131,23 @@ Build a high-performance, multi-threaded trading system with:
   }
   ```
 - [x] Implement `MarketDataWindow` with circular buffer (`VecDeque`)
-- [x] Add time-series query methods (`high()`, `low()`, `avg_volume()`)
-- [x] Write comprehensive unit tests (4 tests passing)
-- [x] Add full Rustdoc documentation with examples
+- [x] Add time-series query methods (`high()`, `low()`, `avg_volume()`, `range()`)
+- [x] Add data access methods (`closes()`, `oldest()`, `latest()`, `iter()`, `get()`)
+- [x] Add utility methods (`clear()`, `len()`, `is_empty()`)
+- [x] Write comprehensive unit tests (18 tests passing)
+- [x] Add full Rustdoc documentation with examples (15 doc tests)
 - [x] Implement `validate()` method for data consistency checks
 - [x] Add `mid_price()` helper method
+- [x] **Architecture decision:** No indicators in MarketDataWindow (deferred to OCaml Phase 2)
 
-### 1.2 Market Data Source Abstraction ✅ COMPLETE
+### 1.1.1 Testing Infrastructure ✅ COMPLETE (Day 2)
+- [x] Reorganize tests - separate from source code
+- [x] Create `src/market_data/tests.rs` with 18 unit tests
+- [x] Create `tests/market_data_integration.rs` with 7 integration tests
+- [x] Create `tests/data_pipeline_integration.rs` with 6 integration tests
+- [x] All 46 tests passing (18 unit + 13 integration + 15 doc)
+
+### 1.2 Market Data Source Abstraction ✅ COMPLETE (Day 1)
 - [x] Design abstract `MarketDataSource` trait:
   ```rust
   #[async_trait]

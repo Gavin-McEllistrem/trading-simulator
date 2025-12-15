@@ -237,6 +237,178 @@ impl MarketDataWindow {
     pub fn latest(&self) -> Option<&MarketData> {
         self.data.back()
     }
+
+    /// Returns the oldest data point in the window.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(&MarketData)` - Reference to the oldest data point
+    /// - `None` - If the window is empty
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trading_engine::{MarketData, MarketDataWindow};
+    ///
+    /// let mut window = MarketDataWindow::new(3);
+    ///
+    /// for i in 0..5 {
+    ///     let data = MarketData {
+    ///         symbol: "BTC".to_string(),
+    ///         timestamp: i,
+    ///         open: 0.0, high: 0.0, low: 0.0, close: 0.0,
+    ///         volume: 0, bid: 0.0, ask: 0.0,
+    ///     };
+    ///     window.push(data);
+    /// }
+    ///
+    /// // Window holds last 3 (timestamps 2, 3, 4)
+    /// assert_eq!(window.oldest().unwrap().timestamp, 2);
+    /// ```
+    pub fn oldest(&self) -> Option<&MarketData> {
+        self.data.front()
+    }
+
+    /// Returns an iterator over the data points from oldest to newest.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trading_engine::{MarketData, MarketDataWindow};
+    ///
+    /// let mut window = MarketDataWindow::new(100);
+    ///
+    /// for i in 0..10 {
+    ///     let data = MarketData {
+    ///         symbol: "BTC".to_string(),
+    ///         timestamp: i,
+    ///         open: 0.0, high: 0.0, low: 0.0, close: 0.0,
+    ///         volume: 0, bid: 0.0, ask: 0.0,
+    ///     };
+    ///     window.push(data);
+    /// }
+    ///
+    /// let timestamps: Vec<i64> = window.iter().map(|d| d.timestamp).collect();
+    /// assert_eq!(timestamps, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &MarketData> {
+        self.data.iter()
+    }
+
+    /// Returns the closing prices for the last `period` bars.
+    ///
+    /// Returns the most recent `period` closing prices, ordered from oldest to newest.
+    /// If `period` exceeds the window size, returns all available closes.
+    ///
+    /// # Arguments
+    ///
+    /// * `period` - Number of recent bars to retrieve
+    ///
+    /// # Returns
+    ///
+    /// A vector of closing prices, or empty vector if window is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trading_engine::{MarketData, MarketDataWindow};
+    ///
+    /// let mut window = MarketDataWindow::new(100);
+    ///
+    /// for i in 0..5 {
+    ///     let data = MarketData {
+    ///         symbol: "BTC".to_string(),
+    ///         timestamp: i,
+    ///         open: 0.0, high: 0.0, low: 0.0,
+    ///         close: 100.0 + i as f64,
+    ///         volume: 0, bid: 0.0, ask: 0.0,
+    ///     };
+    ///     window.push(data);
+    /// }
+    ///
+    /// let closes = window.closes(3);
+    /// assert_eq!(closes, vec![102.0, 103.0, 104.0]);
+    /// ```
+    pub fn closes(&self, period: usize) -> Vec<f64> {
+        self.data
+            .iter()
+            .rev()
+            .take(period)
+            .map(|d| d.close)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
+    }
+
+    /// Returns the price range (high - low) for the last `period` bars.
+    ///
+    /// Calculates the difference between the highest high and lowest low
+    /// over the specified period.
+    ///
+    /// # Arguments
+    ///
+    /// * `period` - Number of recent bars to analyze
+    ///
+    /// # Returns
+    ///
+    /// - `Some(f64)` - The price range (high - low)
+    /// - `None` - If the window is empty
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trading_engine::{MarketData, MarketDataWindow};
+    ///
+    /// let mut window = MarketDataWindow::new(100);
+    ///
+    /// for i in 0..5 {
+    ///     let data = MarketData {
+    ///         symbol: "BTC".to_string(),
+    ///         timestamp: i,
+    ///         open: 0.0,
+    ///         high: 110.0 + i as f64,
+    ///         low: 90.0 - i as f64,
+    ///         close: 0.0,
+    ///         volume: 0, bid: 0.0, ask: 0.0,
+    ///     };
+    ///     window.push(data);
+    /// }
+    ///
+    /// // High: 114 (110 + 4), Low: 86 (90 - 4)
+    /// // Range: 114 - 86 = 28
+    /// assert_eq!(window.range(5).unwrap(), 28.0);
+    /// ```
+    pub fn range(&self, period: usize) -> Option<f64> {
+        let high = self.high(period)?;
+        let low = self.low(period)?;
+        Some(high - low)
+    }
+
+    /// Clears all data from the window.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trading_engine::{MarketData, MarketDataWindow};
+    ///
+    /// let mut window = MarketDataWindow::new(100);
+    ///
+    /// let data = MarketData {
+    ///     symbol: "BTC".to_string(),
+    ///     timestamp: 0,
+    ///     open: 0.0, high: 0.0, low: 0.0, close: 0.0,
+    ///     volume: 0, bid: 0.0, ask: 0.0,
+    /// };
+    /// window.push(data);
+    ///
+    /// assert_eq!(window.len(), 1);
+    /// window.clear();
+    /// assert_eq!(window.len(), 0);
+    /// ```
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
 }
 
 impl Clone for MarketDataWindow {
@@ -245,82 +417,5 @@ impl Clone for MarketDataWindow {
             data: self.data.clone(),
             max_size: self.max_size,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn create_test_data(symbol: &str, count: usize) -> Vec<MarketData> {
-        (0..count)
-            .map(|i| MarketData {
-                symbol: symbol.to_string(),
-                timestamp: i as i64,
-                open: 100.0 + i as f64,
-                high: 105.0 + i as f64,
-                low: 95.0 + i as f64,
-                close: 102.0 + i as f64,
-                volume: 1000 + i as u64,
-                bid: 101.0 + i as f64,
-                ask: 103.0 + i as f64,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn test_window_push_and_capacity() {
-        let mut window = MarketDataWindow::new(3);
-        let data = create_test_data("BTC", 5);
-
-        for d in data.iter() {
-            window.push(d.clone());
-        }
-
-        assert_eq!(window.len(), 3);
-        assert_eq!(window.latest().unwrap().timestamp, 4);
-    }
-
-    #[test]
-    fn test_high_low_functions() {
-        let mut window = MarketDataWindow::new(10);
-        let data = create_test_data("ETH", 5);
-
-        for d in data {
-            window.push(d);
-        }
-
-        let high = window.high(3).unwrap();
-        let low = window.low(3).unwrap();
-
-        assert!(high > low);
-        assert_eq!(high, 109.0); // 105 + 4 (last data point, i=4)
-        assert_eq!(low, 97.0);   // 95 + 2 (i=2)
-    }
-
-    #[test]
-    fn test_avg_volume() {
-        let mut window = MarketDataWindow::new(10);
-        let data = create_test_data("BTC", 5);
-
-        for d in data {
-            window.push(d);
-        }
-
-        let avg = window.avg_volume(5).unwrap();
-        // volumes: 1000, 1001, 1002, 1003, 1004
-        // average: 5010 / 5 = 1002
-        assert_eq!(avg, 1002.0);
-    }
-
-    #[test]
-    fn test_empty_window() {
-        let window = MarketDataWindow::new(10);
-
-        assert!(window.is_empty());
-        assert_eq!(window.len(), 0);
-        assert!(window.high(1).is_none());
-        assert!(window.low(1).is_none());
-        assert!(window.avg_volume(1).is_none());
     }
 }

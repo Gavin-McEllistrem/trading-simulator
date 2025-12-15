@@ -192,3 +192,7 @@ impl MarketData {
 // Re-export window module
 pub mod window;
 pub use window::MarketDataWindow;
+
+// Unit tests
+#[cfg(test)]
+mod tests;
