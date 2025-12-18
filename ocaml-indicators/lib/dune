@@ -1,0 +1,8 @@
+(library
+ (name indicators_ffi)
+ (public_name indicators.ffi)
+ (modules ffi)
+ (libraries indicators)
+ (foreign_stubs
+  (language c)
+  (names c_stubs)))

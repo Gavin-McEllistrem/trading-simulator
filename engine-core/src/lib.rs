@@ -18,7 +18,7 @@
 //!
 //! 1. **Data Sources** ([`sources`]) - Async market data feeds
 //! 2. **Storage** ([`storage`]) - Thread-safe data management
-//! 3. **Indicators** (Phase 2) - Technical analysis via OCaml
+//! 3. **Indicators** ([`indicators`]) - Technical analysis (SMA, EMA, RSI, MACD, Bollinger Bands)
 //! 4. **Strategies** (Phase 4) - Trading logic via Lua
 //!
 //! # Quick Start
@@ -86,12 +86,14 @@
 //! - [`sources`] - Market data source implementations
 //! - [`storage`] - Thread-safe multi-symbol storage
 //! - [`config`] - Configuration structures
+//! - [`indicators`] - Technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands)
 
 pub mod error;
 pub mod market_data;
 pub mod sources;
 pub mod storage;
 pub mod config;
+pub mod indicators;
 
 // Re-export commonly used types
 pub use error::{Result, TradingEngineError};

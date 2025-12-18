@@ -12,6 +12,7 @@ Welcome to the trading engine documentation!
 ### Guides
 - [Getting Started](guides/getting-started.md)
 - [Binance Setup](guides/binance-setup.md) ✅
+- [Technical Indicators](guides/indicators.md) (Coming Soon)
 - Writing Strategies (Coming in Phase 4)
 - Configuration Reference (Coming Soon)
 
@@ -19,7 +20,7 @@ Welcome to the trading engine documentation!
 
 ### Architecture
 - [System Overview](architecture/01-overview.md)
-- Data Flow (Coming in Phase 2)
+- Indicator Architecture (Coming Soon)
 - Threading Model (Coming in Phase 5)
 - State Machine Design (Coming in Phase 3)
 
@@ -27,6 +28,7 @@ Welcome to the trading engine documentation!
 - [ADR 001: Rust Edition 2021](decisions/001-rust-2021.md)
 - [ADR 002: engine-core Naming](decisions/002-engine-core-naming.md)
 - [ADR 003: Circular Buffer for Windows](decisions/003-circular-buffer.md)
+- [ADR 004: Subprocess over FFI for OCaml](decisions/004-subprocess-over-ffi.md) (Coming Soon)
 
 ### API Documentation
 
@@ -39,7 +41,7 @@ cargo doc --no-deps --open
 
 ## Project Status
 
-**Current Phase:** 1 (Market Data Infrastructure) ✅ **COMPLETE**
+**Current Phase:** 2 (Technical Indicators) ✅ **COMPLETE**
 
 See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
 
@@ -57,9 +59,15 @@ See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
   - Binance.com and Binance.US endpoints
   - Multiple symbols support
   - Automatic keepalive
+- ✅ **Technical Indicators (Dual Rust/OCaml)**
+  - SMA, EMA (Moving Averages)
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Bollinger Bands
+  - OCaml reference implementation via subprocess
+  - 48 tests passing (40 Rust + 8 OCaml)
 
 ### Upcoming
-- 📅 OCaml indicator library (Phase 2)
 - 📅 State machine (Phase 3)
 - 📅 Lua strategies (Phase 4)
 

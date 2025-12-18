@@ -1,0 +1,13 @@
+(lang dune 3.20)
+(name indicators)
+(version 0.1.0)
+
+(generate_opam_files true)
+
+(package
+ (name indicators)
+ (synopsis "Technical indicator library for trading systems")
+ (description "Pure functional OCaml implementation of technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands) with C FFI exports for Rust integration")
+ (authors "Trading Simulator Team")
+ (maintainers "Trading Simulator Team")
+ (license MIT))

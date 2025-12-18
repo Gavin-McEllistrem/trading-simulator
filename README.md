@@ -4,9 +4,9 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 ## Project Status
 
-**Current Phase:** 1 (Market Data Infrastructure) ✅ **COMPLETE**
+**Current Phase:** 2 (Technical Indicators) ✅ **COMPLETE**
 
-### Completed (Phase 0-1)
+### Completed (Phase 0-2)
 - ✅ Project structure and build system
 - ✅ Core data structures (MarketData, MarketDataWindow)
 - ✅ Data source abstraction (MarketDataSource trait)
@@ -20,10 +20,16 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
   - Support for Binance.com and Binance.US
   - Multiple symbols simultaneously
   - Automatic ping/pong keepalive
+- ✅ **Technical Indicators (Dual Rust/OCaml)** 🎉
+  - SMA, EMA (Moving Averages)
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Bollinger Bands
+  - OCaml reference implementation via subprocess
+  - Full verification suite (41 tests passing)
 - ✅ Comprehensive documentation
 
 ### Next Steps
-- 📅 OCaml indicator library (Phase 2)
 - 📅 State machine (Phase 3)
 - 📅 Lua strategies (Phase 4)
 

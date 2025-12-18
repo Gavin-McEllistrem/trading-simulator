@@ -75,6 +75,12 @@ pub enum TradingEngineError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
+    /// JSON serialization/deserialization error.
+    ///
+    /// This error occurs when JSON parsing or serialization fails.
+    #[error("JSON error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
     /// Configuration validation error.
     ///
     /// This error occurs when configuration files are malformed or
