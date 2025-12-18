@@ -41,7 +41,7 @@ cargo doc --no-deps --open
 
 ## Project Status
 
-**Current Phase:** 2 (Technical Indicators) ✅ **COMPLETE**
+**Current Phase:** 3 (State Machine Core) ✅ **COMPLETE**
 
 See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
 
@@ -66,10 +66,16 @@ See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
   - Bollinger Bands
   - OCaml reference implementation via subprocess
   - 48 tests passing (40 Rust + 8 OCaml)
+- ✅ **State Machine Core**
+  - 3 states: Idle, Analyzing, InPosition
+  - Position tracking with P&L calculation
+  - Auto-exit on stop loss / take profit
+  - Transition history
+  - 28 tests passing
 
 ### Upcoming
-- 📅 State machine (Phase 3)
 - 📅 Lua strategies (Phase 4)
+- 📅 Multi-symbol engine (Phase 5)
 
 ## Documentation Standards
 

@@ -4,7 +4,7 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 ## Project Status
 
-**Current Phase:** 2 (Technical Indicators) ✅ **COMPLETE**
+**Current Phase:** 3 (State Machine Core) ✅ **COMPLETE**
 
 ### Completed (Phase 0-2)
 - ✅ Project structure and build system
@@ -26,12 +26,19 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
   - MACD (Moving Average Convergence Divergence)
   - Bollinger Bands
   - OCaml reference implementation via subprocess
-  - Full verification suite (41 tests passing)
+  - Full verification suite (48 tests passing)
+- ✅ **State Machine Core** 🎉
+  - 3 states: Idle, Analyzing, InPosition
+  - Position tracking with P&L
+  - Auto-exit on stop loss / take profit
+  - Transition history tracking
+  - Generic and strategy-agnostic
+  - 28 tests passing
 - ✅ Comprehensive documentation
 
 ### Next Steps
-- 📅 State machine (Phase 3)
 - 📅 Lua strategies (Phase 4)
+- 📅 Multi-symbol engine (Phase 5)
 
 ## Quick Start
 
