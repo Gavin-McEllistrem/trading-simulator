@@ -11,9 +11,9 @@ Welcome to the trading engine documentation!
 
 ### Guides
 - [Getting Started](guides/getting-started.md)
-- Binance Setup (Coming in Phase 1)
+- [Binance Setup](guides/binance-setup.md) ✅
 - Writing Strategies (Coming in Phase 4)
-- Configuration Reference (Coming in Phase 1)
+- Configuration Reference (Coming Soon)
 
 ## For Developers
 
@@ -39,7 +39,7 @@ cargo doc --no-deps --open
 
 ## Project Status
 
-**Current Phase:** 0-1 (Foundation + Market Data Infrastructure) ✅
+**Current Phase:** 1 (Market Data Infrastructure) ✅ **COMPLETE**
 
 See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
 
@@ -51,12 +51,14 @@ See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
 - ✅ Thread-safe storage
 - ✅ Configuration system
 - ✅ Error handling framework
-
-### In Progress
-- 🚧 Binance WebSocket integration (Day 4-5)
+- ✅ **Binance WebSocket integration**
+  - Real-time kline (OHLCV) streams
+  - Live bid/ask from bookTicker
+  - Binance.com and Binance.US endpoints
+  - Multiple symbols support
+  - Automatic keepalive
 
 ### Upcoming
-- 📅 Alpaca integration (Phase 1)
 - 📅 OCaml indicator library (Phase 2)
 - 📅 State machine (Phase 3)
 - 📅 Lua strategies (Phase 4)

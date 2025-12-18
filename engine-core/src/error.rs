@@ -33,8 +33,12 @@ pub enum TradingEngineError {
     ///
     /// This error occurs when there are problems with WebSocket connections
     /// to data sources (e.g., Binance, Alpaca).
+    #[error("WebSocket error: {0}")]
+    WebSocketError(String),
+
+    /// WebSocket library error
     #[error("WebSocket connection failed: {0}")]
-    WebSocketError(#[from] tokio_tungstenite::tungstenite::Error),
+    TungsteniteError(#[from] tokio_tungstenite::tungstenite::Error),
 
     /// Attempted operation on a disconnected data source.
     ///
