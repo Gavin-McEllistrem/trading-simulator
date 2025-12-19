@@ -1,0 +1,191 @@
+================================================================================
+STRATEGY INTEGRATION ARCHITECTURE DOCUMENT - CREATED
+================================================================================
+
+Location: docs/architecture/02-strategy-integration.md
+Size: 748 lines (~26KB)
+
+================================================================================
+DOCUMENT CONTENTS
+================================================================================
+
+1. Overview
+   - Component architecture explanation
+   - Key design principles
+   - Layer responsibilities
+
+2. Component Architecture (5 Layers)
+   Layer 1: Market Data Infrastructure
+   Layer 2: Technical Indicators
+   Layer 3: StateMachine
+   Layer 4: LuaStrategy (Rust wrapper)
+   Layer 5: Lua Strategy Scripts (user code)
+
+   Each layer documented with:
+   - Purpose
+   - Components
+   - Key methods
+   - Characteristics
+   - Code examples
+
+3. Data Flow
+   - Complete flow diagram from data source to execution
+   - Detailed flow by state (Idle, Analyzing, InPosition)
+   - Step-by-step walkthroughs
+
+4. Strategy Lifecycle
+   - Loading (filesystem → VM → validation)
+   - Execution (Rust ↔ Lua calls)
+   - State updates (context persistence)
+   - Error handling at each stage
+
+5. State Machine Integration
+   - How strategies drive the state machine
+   - Why separation of concerns matters
+   - Code examples of integration
+   - Advantages and trade-offs
+
+6. Type Conversion Layer
+   - Rust → Lua conversions (MarketData, Context, IndicatorApi)
+   - Lua → Rust conversions (Table → Action)
+   - Complete code examples for each conversion
+   - Validation logic explained
+
+7. Error Handling
+   - Error types (StrategyError, LuaError)
+   - Error propagation flow
+   - Common errors with examples
+   - When errors are caught (load vs runtime)
+
+8. Performance Characteristics
+   - Memory usage per component
+   - Memory scaling (per strategy, per symbol, 100+ symbols)
+   - Latency breakdown (per tick analysis)
+   - Throughput numbers
+   - Bottleneck identification
+
+9. Future Integration (Phase 5+)
+   - SymbolRunner architecture preview
+   - Multi-symbol orchestration
+   - Thread-per-symbol model
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+✓ Complete layer-by-layer breakdown
+✓ Data flow diagrams at multiple levels
+✓ Actual Rust code examples (not pseudocode)
+✓ Performance numbers with breakdowns
+✓ Memory and latency characteristics
+✓ Error handling walkthrough
+✓ Future architecture preview
+
+================================================================================
+DIAGRAMS INCLUDED
+================================================================================
+
+1. 5-Layer Architecture Stack
+2. Data Flow Diagram (source to execution)
+3. Idle State Flow
+4. Analyzing State Flow
+5. InPosition State Flow
+6. Strategy Lifecycle Flowchart
+7. Error Propagation Flow
+8. Latency Breakdown (per tick)
+9. SymbolRunner Architecture (Phase 5)
+10. Multi-Symbol Thread Model
+
+================================================================================
+CODE EXAMPLES
+================================================================================
+
+- Component struct definitions
+- Key method signatures
+- Type conversion functions (complete implementations)
+- Error handling patterns
+- Future SymbolRunner implementation sketch
+- Integration loop examples
+
+Total: 20+ code snippets
+
+================================================================================
+PERFORMANCE DATA
+================================================================================
+
+Memory per component:
+- Lua VM: 100-200KB
+- State Machine: 10-15KB
+- Market Window: 50KB
+- Total per symbol: ~315KB
+
+Latency breakdown:
+- Indicator calc: 0.1-1.0ms (50-70%)
+- Lua execution: 0.05-0.5ms (20-40%)
+- Type conversions: 0.01-0.05ms (5-10%)
+- Everything else: <1%
+- Total: 0.2-2.0ms per tick
+
+Scaling:
+- 100 symbols: ~31MB
+- 1000 symbols: ~310MB
+
+================================================================================
+ANSWERS KEY QUESTIONS
+================================================================================
+
+✓ How do the layers interact?
+✓ Where do strategies fit in?
+✓ How does data flow through the system?
+✓ What happens when a strategy executes?
+✓ How are types converted between Rust and Lua?
+✓ Where are errors caught?
+✓ What's the performance profile?
+✓ How will this scale to multiple symbols?
+
+================================================================================
+INTEGRATION WITH OTHER DOCS
+================================================================================
+
+Referenced by:
+- README.md (added to technical documentation)
+- docs/README.md (added to architecture section)
+
+References:
+- Phase 4 completion report
+- Lua strategy guide
+- API documentation
+- System overview (01-overview.md)
+
+Complements:
+- lua-strategy-guide.md (user perspective)
+- 01-overview.md (high-level design)
+- Phase completion reports (implementation details)
+
+================================================================================
+TARGET AUDIENCE
+================================================================================
+
+Primary: Developers wanting to understand the architecture
+Secondary: Users curious about how strategies integrate
+Tertiary: Contributors planning Phase 5+ features
+
+Skill level: Intermediate to Advanced
+Prerequisites: Understanding of Rust basics, state machines, async programming
+
+================================================================================
+UNIQUE VALUE
+================================================================================
+
+This is the ONLY document that:
+1. Explains the complete architecture layer-by-layer
+2. Shows actual type conversion code
+3. Provides performance breakdown
+4. Walks through data flow by state
+5. Connects user code (Lua) to engine internals (Rust)
+
+Bridges the gap between:
+- User docs (how to use)
+- Implementation (how it works)
+
+================================================================================

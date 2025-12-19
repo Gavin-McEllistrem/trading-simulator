@@ -10,25 +10,25 @@ Welcome to the trading engine documentation!
 ## For Users
 
 ### Guides
-- [Getting Started](guides/getting-started.md)
+- [Getting Started](guides/getting-started.md) ✅
 - [Binance Setup](guides/binance-setup.md) ✅
+- [Lua Strategy Development Guide](guides/lua-strategy-guide.md) ✅ **NEW!**
 - [Technical Indicators](guides/indicators.md) (Coming Soon)
-- Writing Strategies (Coming in Phase 4)
 - Configuration Reference (Coming Soon)
 
 ## For Developers
 
 ### Architecture
-- [System Overview](architecture/01-overview.md)
-- Indicator Architecture (Coming Soon)
+- [System Overview](architecture/01-overview.md) ✅
+- [Strategy Integration](architecture/02-strategy-integration.md) ✅ **NEW!**
 - Threading Model (Coming in Phase 5)
-- State Machine Design (Coming in Phase 3)
+- Performance Analysis (Coming Soon)
 
 ### Decision Records
 - [ADR 001: Rust Edition 2021](decisions/001-rust-2021.md)
 - [ADR 002: engine-core Naming](decisions/002-engine-core-naming.md)
 - [ADR 003: Circular Buffer for Windows](decisions/003-circular-buffer.md)
-- [ADR 004: Subprocess over FFI for OCaml](decisions/004-subprocess-over-ffi.md) (Coming Soon)
+- [ADR 004: Subprocess over FFI for OCaml](decisions/004-subprocess-over-ffi.md)
 
 ### API Documentation
 
@@ -41,41 +41,45 @@ cargo doc --no-deps --open
 
 ## Project Status
 
-**Current Phase:** 3 (State Machine Core) ✅ **COMPLETE**
+**Current Phase:** 4 (Lua Strategy Integration) ✅ **COMPLETE**
+
+**Progress:** 4 of 12 phases complete (33%)
 
 See [Full Roadmap](../trading-system-roadmap.md) for complete project plan.
 
 ### Completed
-- ✅ Project setup and structure
-- ✅ Core data structures (MarketData, MarketDataWindow)
-- ✅ Data source abstraction (MarketDataSource trait)
-- ✅ Simulated feed for testing
-- ✅ Thread-safe storage
-- ✅ Configuration system
-- ✅ Error handling framework
-- ✅ **Binance WebSocket integration**
-  - Real-time kline (OHLCV) streams
-  - Live bid/ask from bookTicker
-  - Binance.com and Binance.US endpoints
-  - Multiple symbols support
-  - Automatic keepalive
-- ✅ **Technical Indicators (Dual Rust/OCaml)**
-  - SMA, EMA (Moving Averages)
-  - RSI (Relative Strength Index)
-  - MACD (Moving Average Convergence Divergence)
-  - Bollinger Bands
-  - OCaml reference implementation via subprocess
-  - 48 tests passing (40 Rust + 8 OCaml)
-- ✅ **State Machine Core**
-  - 3 states: Idle, Analyzing, InPosition
+- ✅ **Phase 1: Market Data Infrastructure**
+  - Core data structures (MarketData, MarketDataWindow)
+  - Binance WebSocket integration
+  - Simulated feed for testing
+  - Thread-safe storage
+  - 47 tests passing
+
+- ✅ **Phase 2: Technical Indicators (Dual Rust/OCaml)**
+  - SMA, EMA, RSI, MACD, Bollinger Bands
+  - OCaml subprocess bridge (1-2ms latency)
+  - Full verification suite
+  - 48 tests passing
+
+- ✅ **Phase 3: State Machine Core**
+  - 3-state FSM (Idle, Analyzing, InPosition)
   - Position tracking with P&L calculation
   - Auto-exit on stop loss / take profit
   - Transition history
   - 28 tests passing
 
+- ✅ **Phase 4: Lua Strategy Integration** 🎉
+  - LuaStrategy system with VM management
+  - Full Lua API (market data, indicators, actions)
+  - 3 production-ready example strategies
+  - 14 tests passing
+  - **[Strategy Development Guide](guides/lua-strategy-guide.md)** available!
+
+**Total: 117 tests passing, ~8,600 LOC**
+
 ### Upcoming
-- 📅 Lua strategies (Phase 4)
-- 📅 Multi-symbol engine (Phase 5)
+- 📅 Multi-symbol threading engine (Phase 5)
+- 📅 Execution & risk management (Phase 6)
 
 ## Documentation Standards
 

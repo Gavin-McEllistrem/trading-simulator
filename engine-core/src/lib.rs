@@ -89,6 +89,8 @@
 //! - [`config`] - Configuration structures
 //! - [`indicators`] - Technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands)
 //! - [`state_machine`] - Trading state machine and position tracking
+//! - [`strategy`] - Lua-based strategy system
+//! - [`runner`] - Symbol runner orchestration (Phase 5)
 
 pub mod error;
 pub mod market_data;
@@ -97,6 +99,8 @@ pub mod storage;
 pub mod config;
 pub mod indicators;
 pub mod state_machine;
+pub mod strategy;
+pub mod runner;
 
 // Re-export commonly used types
 pub use error::{Result, TradingEngineError};

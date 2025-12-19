@@ -4,41 +4,63 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 ## Project Status
 
-**Current Phase:** 3 (State Machine Core) ✅ **COMPLETE**
+**Current Phase:** 5 (Multi-Symbol Threading Engine) ✅ **COMPLETE**
 
-### Completed (Phase 0-2)
-- ✅ Project structure and build system
-- ✅ Core data structures (MarketData, MarketDataWindow)
-- ✅ Data source abstraction (MarketDataSource trait)
-- ✅ Simulated feed for testing
-- ✅ Thread-safe storage system
-- ✅ Configuration framework
-- ✅ Error handling
-- ✅ **Binance WebSocket integration** 🎉
-  - Real-time kline (OHLCV) data
-  - Live bid/ask prices via bookTicker
-  - Support for Binance.com and Binance.US
-  - Multiple symbols simultaneously
-  - Automatic ping/pong keepalive
-- ✅ **Technical Indicators (Dual Rust/OCaml)** 🎉
-  - SMA, EMA (Moving Averages)
-  - RSI (Relative Strength Index)
-  - MACD (Moving Average Convergence Divergence)
-  - Bollinger Bands
-  - OCaml reference implementation via subprocess
-  - Full verification suite (48 tests passing)
-- ✅ **State Machine Core** 🎉
-  - 3 states: Idle, Analyzing, InPosition
-  - Position tracking with P&L
-  - Auto-exit on stop loss / take profit
-  - Transition history tracking
-  - Generic and strategy-agnostic
-  - 28 tests passing
-- ✅ Comprehensive documentation
+**Progress:** 5 of 12 phases complete (42% of core system)
+
+### Completed (Phases 0-5)
+
+**Phase 1: Market Data Infrastructure** ✅
+- Core data structures (MarketData, MarketDataWindow)
+- Data source abstraction (MarketDataSource trait)
+- **Binance WebSocket integration** with real bid/ask prices
+- Simulated feed for testing
+- Thread-safe storage system
+- 47 tests passing
+
+**Phase 2: Technical Indicators** ✅
+- **Dual Rust/OCaml implementation** (SMA, EMA, RSI, MACD, Bollinger Bands)
+- OCaml subprocess bridge (1-2ms latency)
+- Full verification suite (Rust ↔ OCaml match within 0.001)
+- 48 tests passing
+
+**Phase 3: State Machine Core** ✅
+- 3-state FSM (Idle, Analyzing, InPosition)
+- Position tracking with P&L calculation
+- Auto-exit on stop loss/take profit
+- Transition history tracking
+- Generic, strategy-agnostic design
+- 28 tests passing
+
+**Phase 4: Lua Strategy Integration** ✅
+- **LuaStrategy system** with VM management
+- **3 production-ready example strategies:**
+  - EMA Crossover (10/20 periods)
+  - RSI Mean Reversion (oversold <30)
+  - Range Breakout (20-bar range + volume)
+- Full Lua API for market data, indicators, and actions
+- Table-based strategy interface
+- 14 tests passing
+
+**Phase 5: Multi-Symbol Threading Engine** ✅ 🎉
+- **SymbolRunner** orchestration (~400 LOC)
+  - Per-symbol async task with component coordination
+  - Runs indefinitely until channel closed (not tick-limited)
+- **TradingEngine** multi-runner management (~1,100 LOC)
+  - **Runner-based architecture**: multiple strategies per symbol
+  - Efficient broadcast to all runners watching a symbol
+  - Dynamic runner add/remove
+- **Health monitoring** & error recovery
+  - Per-runner health checks and uptime tracking
+  - Engine-wide health summary
+- **28 tests** passing (17 unit + 11 integration)
+- **Demo**: 6 concurrent runners (2 strategies × 3 symbols)
+
+**Total:** 145 tests passing, ~10,200 LOC
 
 ### Next Steps
-- 📅 Lua strategies (Phase 4)
-- 📅 Multi-symbol engine (Phase 5)
+- 📅 Order execution & risk management (Phase 6)
+- 📅 Historical backtesting (Phase 7)
 
 ## Quick Start
 
@@ -60,6 +82,15 @@ cargo test
 
 # Run Binance integration tests (slow, requires network)
 cargo test --test binance_integration -- --ignored --nocapture
+
+# Run Lua strategy integration tests
+cargo test --test lua_strategy_integration
+
+# Run examples
+cargo run --example indicators_demo
+cargo run --example state_machine_demo
+cargo run --example lua_strategy_demo
+cargo run --example multi_symbol_engine_demo
 
 # View documentation
 cargo doc --no-deps --open
@@ -94,16 +125,25 @@ trading-simulator/
 ├── engine-core/          # Main Rust engine
 │   ├── src/
 │   │   ├── market_data/  # OHLCV data structures
-│   │   ├── sources/      # Data source implementations
+│   │   ├── sources/      # Data source implementations (Binance, Simulated)
 │   │   ├── storage/      # Thread-safe storage
+│   │   ├── indicators/   # Technical indicators (SMA, EMA, RSI, MACD, BB)
+│   │   ├── state_machine/# Trading FSM and position tracking
+│   │   ├── strategy/     # Lua integration layer
 │   │   ├── config/       # Configuration types
 │   │   ├── error.rs      # Error handling
 │   │   ├── lib.rs        # Library root
 │   │   └── main.rs       # Binary entry point
 │   ├── tests/            # Integration tests
+│   ├── examples/         # Demo applications
 │   └── Cargo.toml
-├── ocaml-indicators/     # Indicator library (Phase 2)
+├── ocaml-indicators/     # OCaml indicator library (Phase 2)
+│   ├── src/              # Pure functional implementations
+│   ├── bin/              # CLI with JSON I/O
+│   └── test/             # OCaml test suites
 ├── lua-strategies/       # Strategy scripts (Phase 4)
+│   └── examples/         # EMA crossover, RSI mean reversion, Range breakout
+├── changes/              # Phase completion summaries
 ├── tests/                # End-to-end tests
 └── docs/                 # Documentation
     ├── architecture/     # System design docs
@@ -117,9 +157,11 @@ trading-simulator/
 ### User Guides
 - **[Getting Started Guide](docs/guides/getting-started.md)** - Setup and first run
 - **[Binance Setup Guide](docs/guides/binance-setup.md)** - Live market data configuration
+- **[Lua Strategy Development Guide](docs/guides/lua-strategy-guide.md)** - Creating custom trading strategies ✨ **NEW!**
 
 ### Technical Documentation
 - **[Architecture Overview](docs/architecture/01-overview.md)** - System design
+- **[Strategy Integration Architecture](docs/architecture/02-strategy-integration.md)** - How strategies work ✨ **NEW!**
 - **[API Documentation](engine-core/target/doc/trading_engine/index.html)** - Generated from code (`cargo doc --open`)
 - **[Full Roadmap](trading-system-roadmap.md)** - Complete project plan
 
@@ -127,6 +169,14 @@ trading-simulator/
 - [ADR 001: Rust Edition 2021](docs/decisions/001-rust-2021.md)
 - [ADR 002: engine-core Naming](docs/decisions/002-engine-core-naming.md)
 - [ADR 003: Circular Buffer for Windows](docs/decisions/003-circular-buffer.md)
+- [ADR 004: Subprocess over FFI for OCaml](docs/decisions/004-subprocess-over-ffi.md)
+- [ADR 005: Runner-Based Architecture](docs/decisions/005-runner-based-architecture.md) ✨ **NEW!**
+
+### Phase Completion Reports
+- [Phase 1: Market Data Infrastructure](changes/2025-12-17-phase1-completion.md)
+- [Phase 2: Technical Indicators](changes/2025-12-18-phase2-completion.md)
+- [Phase 3: State Machine Core](changes/2025-12-18-phase3-completion.md)
+- [Phase 4: Lua Strategy Integration](changes/2025-12-18-phase4-completion.md)
 
 ## Development
 
@@ -163,52 +213,134 @@ cargo doc --no-deps --open
 cargo test --doc
 ```
 
-## Features
+## Architecture
 
-### Phase 1 - Market Data Infrastructure (Complete ✅)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TradingEngine                                │
+│  - Multi-runner management                                      │
+│  - Broadcast data to runners                                    │
+│  - Health monitoring                                            │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │ Spawns & manages
+                       ↓
+         ┌─────────────────────────┐ ┌─────────────────────────┐
+         │  SymbolRunner (BTC-EMA) │ │  SymbolRunner (BTC-RSI) │  ... (N runners)
+         │  - Async task per runner│ │  - Independent state    │
+         │  - Channel-based comms  │ │  - Own strategy         │
+         └────────┬────────────────┘ └────────┬────────────────┘
+                  │                           │
+                  ↓                           ↓
+         ┌────────────────────────────────────────────────┐
+         │      Lua Strategy Scripts                     │  User-defined trading logic
+         │  (EMA crossover, RSI, Range breakout)         │
+         └─────────────┬──────────────────────────────────┘
+                       │ Returns Actions
+                       ↓
+         ┌─────────────────────────────────────────────┐
+         │      LuaStrategy (Rust wrapper)             │  VM management, type conversion
+         └─────────────┬───────────────────────────────┘
+                       │ Executes Actions
+                       ↓
+         ┌─────────────────────────────────────────────┐
+         │      StateMachine (3-state FSM)             │  Idle → Analyzing → InPosition
+         │  - Position tracking & P&L                  │
+         │  - Auto-exit on stop/profit                 │
+         │  - Transition history                       │
+         └─────────────┬───────────────────────────────┘
+                       │ Queries
+                       ↓
+         ┌─────────────────────────────────────────────┐
+         │    Technical Indicators (Rust/OCaml)        │  SMA, EMA, RSI, MACD, BB
+         │  - Rust: Performance                        │
+         │  - OCaml: Correctness verification          │
+         └─────────────┬───────────────────────────────┘
+                       │ Calculates from
+                       ↓
+         ┌─────────────────────────────────────────────┐
+         │    MarketDataWindow (circular buffer)       │  Time-series OHLCV data
+         │  - O(1) insertion                           │
+         │  - Bounded memory                           │
+         └─────────────┬───────────────────────────────┘
+                       │ Fed by
+                       ↓
+         ┌─────────────────────────────────────────────┐
+         │    Data Sources (WebSocket/Simulated)       │  Real-time or test data
+         │  - Binance WebSocket                        │
+         │  - Simulated random walk                    │
+         └─────────────────────────────────────────────┘
+```
 
-**Data Sources**
-- ✅ Abstract `MarketDataSource` trait for pluggable data feeds
-- ✅ Simulated feed with random walk price generation
-- ✅ **Binance WebSocket integration**
-  - Real-time kline/candlestick data (1s to 1M intervals)
-  - Live bid/ask prices from bookTicker stream
-  - Combined streams for multiple symbols
-  - Binance.com (international) and Binance.US support
-  - Automatic reconnection with ping/pong keepalive
-  - Regional endpoint selection
+## Features Summary
 
-**Core Data Structures**
-- ✅ `MarketData`: OHLCV candlesticks with bid/ask prices
-- ✅ `MarketDataWindow`: Circular buffer with time-series queries
-  - High/low/average volume calculations
-  - Closes extraction for indicator calculations
-  - O(1) insertion, bounded memory
-- ✅ `MarketDataStorage`: Thread-safe multi-symbol storage
-  - Concurrent reads with RwLock
-  - Automatic window creation per symbol
+| Phase | Feature | Status | Tests |
+|-------|---------|--------|-------|
+| 1 | Market Data Infrastructure | ✅ | 47 |
+| 2 | Technical Indicators (Rust/OCaml) | ✅ | 48 |
+| 3 | State Machine & Position Tracking | ✅ | 28 |
+| 4 | Lua Strategy Integration | ✅ | 14 |
+| 5 | Multi-Symbol Threading Engine | ✅ | 28 |
+| 6 | Execution & Risk Management | 📅 | - |
+| 7 | Historical Backtesting | 📅 | - |
 
-**Developer Experience**
-- ✅ Comprehensive error handling with `thiserror`
-- ✅ Structured logging with `tracing`
-- ✅ Full API documentation with examples
-- ✅ 47+ tests (unit, integration, doc tests)
-- ✅ Demo application with simulated and live modes
-
-### Upcoming Features
-
-- **Phase 2** (Week 3-4): OCaml indicator library (SMA, EMA, RSI, MACD, Bollinger Bands)
-- **Phase 3** (Week 4-5): State machine core (idle, analyzing, trading states)
-- **Phase 4** (Week 5-6): Lua strategy integration (custom trading logic)
-- **Phase 5** (Week 6-7): Multi-symbol threading (parallel symbol processing)
+**Total: 145 tests passing, 5 of 12 phases complete (42%)**
 
 See [trading-system-roadmap.md](trading-system-roadmap.md) for complete plan.
 
+## Creating a Lua Strategy
+
+Strategies are simple Lua scripts with 3 required functions:
+
+```lua
+-- lua-strategies/my_strategy.lua
+
+function detect_opportunity(market_data, context, indicators)
+    -- Called in Idle state to find trading opportunities
+    local ema_10 = indicators.ema(10)
+    local ema_20 = indicators.ema(20)
+
+    if ema_10 and ema_20 and ema_10 > ema_20 then
+        return { signal = "bullish", confidence = 0.8 }
+    end
+    return nil
+end
+
+function filter_commitment(market_data, context, indicators)
+    -- Called in Analyzing state to decide on entry
+    if context.signal == "bullish" then
+        return {
+            action = "enter_long",
+            price = market_data.close,
+            quantity = 0.1
+        }
+    end
+    return { action = "cancel_analysis", reason = "No signal" }
+end
+
+function manage_position(market_data, context, indicators)
+    -- Called in InPosition state to manage the trade
+    local ema_10 = indicators.ema(10)
+    local ema_20 = indicators.ema(20)
+
+    if ema_10 and ema_20 and ema_10 < ema_20 then
+        return {
+            action = "exit",
+            price = market_data.close,
+            reason = "Bearish crossover"
+        }
+    end
+    return nil
+end
+```
+
+See [lua-strategies/examples/](lua-strategies/examples/) for complete examples.
+
 ## Performance Targets
 
-- State machine: 1000+ transitions/second
+- State machine: 1000+ transitions/second ✅ (achieved)
 - Concurrent symbols: 100+ with <1% CPU per symbol
-- Indicator calculations: <1ms for typical periods
+- Indicator calculations: <1ms for typical periods ✅ (achieved)
+- Lua strategy overhead: <1ms per tick ✅ (achieved)
 - End-to-end latency: <10ms from data → action
 - Memory: <100MB per symbol
 

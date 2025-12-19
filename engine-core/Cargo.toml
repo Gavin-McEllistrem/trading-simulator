@@ -39,6 +39,9 @@ config = "0.14"
 # Random for SimulatedFeed
 rand = "0.8"
 
+# Lua integration
+mlua = { version = "0.9", features = ["lua54", "send", "serialize"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 

@@ -1,0 +1,134 @@
+================================================================================
+LUA STRATEGY DEVELOPMENT GUIDE - CREATED
+================================================================================
+
+Location: docs/guides/lua-strategy-guide.md
+Size: 894 lines (~21KB)
+
+================================================================================
+GUIDE CONTENTS
+================================================================================
+
+1. Introduction
+   - Why Lua for strategies
+   - Architecture overview
+   - Performance characteristics
+
+2. Strategy Basics
+   - Three required functions explained
+   - detect_opportunity() - Idle state scanning
+   - filter_commitment() - Entry decisions
+   - manage_position() - Trade management
+
+3. API Reference
+   - Market Data fields (symbol, OHLCV, bid/ask)
+   - Context system (persistent state)
+   - Indicators (SMA, EMA, RSI, high/low/range/volume)
+   - Actions (enter_long, enter_short, exit, update_stop/profit)
+
+4. Creating Your First Strategy
+   - Step-by-step tutorial
+   - Complete EMA crossover example
+   - Testing instructions
+   - Running in demo
+
+5. Testing Strategies
+   - Unit testing in Lua
+   - Integration testing in Rust
+   - Backtesting approach
+
+6. Example Strategies (Detailed)
+   - EMA Crossover (trending markets)
+   - RSI Mean Reversion (range-bound)
+   - Range Breakout (volatility)
+
+7. Best Practices
+   - Always check for nil
+   - Use configuration constants
+   - Store state in context
+   - Validate signals before entry
+   - Document your strategy
+   - Handle edge cases
+
+8. Debugging
+   - Print debugging
+   - Context inspection
+   - Return value inspection
+   - Common errors and fixes
+
+9. Performance Optimization
+   - Minimize indicator calculations
+   - Early returns
+   - Avoid complex logic in manage_position
+   - Performance targets
+
+10. Advanced Topics
+    - Multiple timeframes
+    - Dynamic position sizing
+    - Trailing stops
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+✓ Complete API reference with examples
+✓ Step-by-step tutorial for first strategy
+✓ 3 detailed example strategy explanations
+✓ Best practices and common pitfalls
+✓ Debugging guide with error solutions
+✓ Performance optimization tips
+✓ Advanced techniques
+✓ Links to all resources
+
+================================================================================
+CODE EXAMPLES
+================================================================================
+
+- 15+ complete code snippets
+- Full working strategy template
+- Good vs Bad comparisons
+- Debug patterns
+- Optimization examples
+
+================================================================================
+DOCUMENTATION UPDATES
+================================================================================
+
+Updated:
+  ✓ docs/README.md - Added guide to user guides section
+  ✓ README.md - Added guide to main documentation section
+  ✓ Both marked as "NEW!" with sparkle emoji
+
+Integration:
+  ✓ Links to example strategies in lua-strategies/examples/
+  ✓ References Phase 4 completion report
+  ✓ Points to Lua 5.4 reference manual
+  ✓ Links to API documentation
+
+================================================================================
+USER EXPERIENCE
+================================================================================
+
+A developer can now:
+
+1. Read the guide (docs/guides/lua-strategy-guide.md)
+2. Follow the tutorial to create their first strategy
+3. Test it with provided commands
+4. Study 3 production-ready examples
+5. Optimize and debug with guide help
+6. Deploy to production (Phase 5)
+
+Complete workflow from zero to production strategy in one document!
+
+================================================================================
+NEXT STEPS FOR USERS
+================================================================================
+
+With this guide, users can:
+- Create custom trading strategies without touching Rust
+- Test strategies independently
+- Iterate quickly (no recompilation)
+- Learn from 3 complete examples
+- Deploy when Phase 5 is ready
+
+================================================================================

@@ -138,6 +138,26 @@ impl Context {
     pub fn latest_timestamp(&self) -> Option<i64> {
         self.get::<i64>("latest_timestamp").copied()
     }
+
+    /// Iterate over all number entries
+    pub fn iter_numbers(&self) -> impl Iterator<Item = (&String, &f64)> {
+        self.numbers.iter()
+    }
+
+    /// Iterate over all string entries
+    pub fn iter_strings(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.strings.iter()
+    }
+
+    /// Iterate over all integer entries
+    pub fn iter_integers(&self) -> impl Iterator<Item = (&String, &i64)> {
+        self.integers.iter()
+    }
+
+    /// Iterate over all boolean entries
+    pub fn iter_booleans(&self) -> impl Iterator<Item = (&String, &bool)> {
+        self.booleans.iter()
+    }
 }
 
 impl Default for Context {

@@ -87,6 +87,53 @@ pub enum TradingEngineError {
     /// contain invalid values.
     #[error("Configuration error: {0}")]
     ConfigError(String),
+
+    /// Lua strategy error.
+    ///
+    /// This error occurs when Lua script execution fails or returns
+    /// invalid values.
+    #[error("Strategy error: {0}")]
+    StrategyError(String),
+
+    /// Lua runtime error.
+    ///
+    /// This error occurs when the Lua VM encounters an error during
+    /// script execution.
+    #[error("Lua error: {0}")]
+    LuaError(#[from] mlua::Error),
+
+    /// Runner with this ID already exists.
+    ///
+    /// This error occurs when trying to add a runner with an ID that's
+    /// already in use.
+    #[error("Runner already exists: {0}")]
+    RunnerAlreadyExists(String),
+
+    /// Runner with this ID was not found.
+    ///
+    /// This error occurs when trying to remove or access a runner that
+    /// doesn't exist.
+    #[error("Runner not found: {0}")]
+    RunnerNotFound(String),
+
+    /// No runners are watching this symbol.
+    ///
+    /// This error occurs when trying to feed data to a symbol that has
+    /// no active runners.
+    #[error("No runners for symbol: {0}")]
+    NoRunnersForSymbol(String),
+
+    /// Channel closed unexpectedly.
+    ///
+    /// This error occurs when a runner's data channel closes prematurely.
+    #[error("Channel closed for runner: {0}")]
+    ChannelClosed(String),
+
+    /// Runner task panicked.
+    ///
+    /// This error occurs when a runner's background task panics.
+    #[error("Runner task panicked: {0}")]
+    TaskPanic(String),
 }
 
 /// Convenience type alias for Results using [`TradingEngineError`].
