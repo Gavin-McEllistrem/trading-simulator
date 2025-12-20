@@ -101,6 +101,7 @@ pub mod indicators;
 pub mod state_machine;
 pub mod strategy;
 pub mod runner;
+pub mod events;
 
 // Re-export commonly used types
 pub use error::{Result, TradingEngineError};

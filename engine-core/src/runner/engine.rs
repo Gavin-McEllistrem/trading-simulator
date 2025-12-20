@@ -77,10 +77,12 @@
 //! ```
 
 use crate::error::{Result, TradingEngineError};
+use crate::events::RunnerEvent;
 use crate::market_data::MarketData;
 use crate::strategy::LuaStrategy;
 use super::{RunnerConfig, SymbolRunner};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -144,6 +146,14 @@ pub struct TradingEngine {
 
     /// Default window size
     default_window_size: usize,
+
+    /// Global event broadcaster
+    /// All runner events are aggregated here
+    event_tx: mpsc::UnboundedSender<RunnerEvent>,
+
+    /// Event subscribers (shared)
+    /// Multiple clients can subscribe to the event stream
+    event_subscribers: Arc<Mutex<Vec<mpsc::UnboundedSender<RunnerEvent>>>>,
 }
 
 impl TradingEngine {
@@ -157,11 +167,27 @@ impl TradingEngine {
     /// let engine = TradingEngine::new();
     /// ```
     pub fn new() -> Self {
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel::<RunnerEvent>();
+        let event_subscribers: Arc<Mutex<Vec<mpsc::UnboundedSender<RunnerEvent>>>> =
+            Arc::new(Mutex::new(Vec::new()));
+
+        // Spawn event forwarding task
+        let subscribers = event_subscribers.clone();
+        tokio::spawn(async move {
+            while let Some(event) = event_rx.recv().await {
+                // Forward to all subscribers
+                let mut subs = subscribers.lock().unwrap();
+                subs.retain(|tx| tx.send(event.clone()).is_ok());
+            }
+        });
+
         Self {
             runners: HashMap::new(),
             subscriptions: HashMap::new(),
             default_config: RunnerConfig::default(),
             default_window_size: 100,
+            event_tx,
+            event_subscribers,
         }
     }
 
@@ -181,12 +207,54 @@ impl TradingEngine {
     /// let engine = TradingEngine::with_defaults(config, 200);
     /// ```
     pub fn with_defaults(config: RunnerConfig, window_size: usize) -> Self {
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel::<RunnerEvent>();
+        let event_subscribers: Arc<Mutex<Vec<mpsc::UnboundedSender<RunnerEvent>>>> =
+            Arc::new(Mutex::new(Vec::new()));
+
+        // Spawn event forwarding task
+        let subscribers = event_subscribers.clone();
+        tokio::spawn(async move {
+            while let Some(event) = event_rx.recv().await {
+                // Forward to all subscribers
+                let mut subs = subscribers.lock().unwrap();
+                subs.retain(|tx| tx.send(event.clone()).is_ok());
+            }
+        });
+
         Self {
             runners: HashMap::new(),
             subscriptions: HashMap::new(),
             default_config: config,
             default_window_size: window_size,
+            event_tx,
+            event_subscribers,
         }
+    }
+
+    /// Subscribe to all runner events
+    ///
+    /// Returns a channel receiver that will receive all events from all runners.
+    /// Multiple clients can subscribe simultaneously.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use trading_engine::runner::TradingEngine;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let engine = TradingEngine::new();
+    /// let mut events = engine.subscribe_events();
+    ///
+    /// // Receive events
+    /// while let Some(event) = events.recv().await {
+    ///     println!("Event: {:?}", event);
+    /// }
+    /// # }
+    /// ```
+    pub fn subscribe_events(&self) -> mpsc::UnboundedReceiver<RunnerEvent> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.event_subscribers.lock().unwrap().push(tx);
+        rx
     }
 
     /// Add a runner with default configuration
@@ -294,13 +362,28 @@ impl TradingEngine {
         // Create channel for market data
         let (tx, rx) = mpsc::unbounded_channel();
 
-        // Create runner
-        let mut runner = SymbolRunner::new(symbol.clone(), strategy, rx, window_size)
-            .with_config(config);
+        // Create runner with event channel
+        let mut runner = SymbolRunner::new(
+            runner_id.clone(),
+            symbol.clone(),
+            strategy,
+            rx,
+            window_size
+        )
+        .with_config(config)
+        .with_event_channel(self.event_tx.clone());
+
+        // Emit RunnerStarted event
+        let _ = self.event_tx.send(RunnerEvent::RunnerStarted {
+            runner_id: runner_id.clone(),
+            symbol: symbol.clone(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+        });
 
         // Spawn task
         let task_runner_id = runner_id.clone();
         let task_symbol = symbol.clone();
+        let event_tx = self.event_tx.clone();
         let task = tokio::spawn(async move {
             tracing::info!("Starting runner '{}' for {}", task_runner_id, task_symbol);
             let result = runner.run().await;
@@ -318,6 +401,18 @@ impl TradingEngine {
                     task_symbol
                 );
             }
+
+            // Emit RunnerStopped event
+            let _ = event_tx.send(RunnerEvent::RunnerStopped {
+                runner_id: task_runner_id,
+                reason: if result.is_ok() {
+                    "Normal shutdown".to_string()
+                } else {
+                    format!("Error: {}", result.as_ref().unwrap_err())
+                },
+                timestamp: chrono::Utc::now().timestamp_millis(),
+            });
+
             result
         });
 
@@ -1082,5 +1177,59 @@ mod tests {
         assert!(summary.contains("Total Runners: 2"));
         assert!(summary.contains("Symbols: 1"));
         assert!(summary.contains("Runners per symbol: 2.0"));
+    }
+
+    #[tokio::test]
+    async fn test_event_aggregation() {
+        let mut engine = TradingEngine::new();
+        let mut events = engine.subscribe_events();
+
+        let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
+            .expect("Failed to load test strategy");
+
+        // Add runner - should emit RunnerStarted event
+        engine.add_runner("btc_ema", "BTCUSDT", strategy).unwrap();
+
+        // Wait for event
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Should receive RunnerStarted event
+        let event = tokio::time::timeout(
+            tokio::time::Duration::from_millis(100),
+            events.recv()
+        ).await;
+
+        assert!(event.is_ok());
+        let event = event.unwrap().unwrap();
+        assert_eq!(event.runner_id(), "btc_ema");
+        assert!(matches!(event, crate::events::RunnerEvent::RunnerStarted { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_multiple_event_subscribers() {
+        let mut engine = TradingEngine::new();
+        let mut subscriber1 = engine.subscribe_events();
+        let mut subscriber2 = engine.subscribe_events();
+
+        let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
+            .expect("Failed to load test strategy");
+
+        // Add runner
+        engine.add_runner("btc_ema", "BTCUSDT", strategy).unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Both subscribers should receive the same event
+        let event1 = tokio::time::timeout(
+            tokio::time::Duration::from_millis(100),
+            subscriber1.recv()
+        ).await.unwrap().unwrap();
+
+        let event2 = tokio::time::timeout(
+            tokio::time::Duration::from_millis(100),
+            subscriber2.recv()
+        ).await.unwrap().unwrap();
+
+        assert_eq!(event1.runner_id(), event2.runner_id());
     }
 }

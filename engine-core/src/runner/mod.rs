@@ -46,6 +46,7 @@
 //! ```
 
 use crate::error::Result;
+use crate::events::{ErrorSeverity, RunnerEvent};
 use crate::market_data::{MarketData, MarketDataWindow};
 use crate::state_machine::{Action, State, StateMachine};
 use crate::strategy::{IndicatorApi, LuaStrategy};
@@ -68,6 +69,9 @@ pub use engine::TradingEngine;
 /// Each runner typically runs in its own Tokio task, receiving market data
 /// via a channel and executing trades independently.
 pub struct SymbolRunner {
+    /// Unique runner ID (e.g., "btc_ema_prod")
+    runner_id: String,
+
     /// Symbol being traded (e.g., "BTCUSDT")
     symbol: String,
 
@@ -91,6 +95,9 @@ pub struct SymbolRunner {
 
     /// Start time
     start_time: Instant,
+
+    /// Optional event channel for real-time updates
+    event_tx: Option<mpsc::UnboundedSender<RunnerEvent>>,
 }
 
 impl SymbolRunner {
@@ -98,6 +105,7 @@ impl SymbolRunner {
     ///
     /// # Arguments
     ///
+    /// * `runner_id` - Unique identifier for this runner
     /// * `symbol` - Symbol to trade (e.g., "BTCUSDT")
     /// * `strategy` - Lua strategy for trading logic
     /// * `data_receiver` - Channel to receive market data updates
@@ -112,10 +120,17 @@ impl SymbolRunner {
     ///
     /// let (tx, rx) = mpsc::unbounded_channel();
     /// let strategy = LuaStrategy::new("strategies/ema_crossover.lua")?;
-    /// let runner = SymbolRunner::new("BTCUSDT".to_string(), strategy, rx, 50);
+    /// let runner = SymbolRunner::new(
+    ///     "btc_ema".to_string(),
+    ///     "BTCUSDT".to_string(),
+    ///     strategy,
+    ///     rx,
+    ///     50
+    /// );
     /// # Ok::<(), anyhow::Error>(())
     /// ```
     pub fn new(
+        runner_id: String,
         symbol: String,
         strategy: LuaStrategy,
         data_receiver: mpsc::UnboundedReceiver<MarketData>,
@@ -125,6 +140,7 @@ impl SymbolRunner {
         let window = MarketDataWindow::new(window_size);
 
         Self {
+            runner_id,
             symbol,
             window,
             state_machine,
@@ -133,6 +149,7 @@ impl SymbolRunner {
             config: RunnerConfig::default(),
             stats: RunnerStats::new(),
             start_time: Instant::now(),
+            event_tx: None,
         }
     }
 
@@ -142,9 +159,41 @@ impl SymbolRunner {
         self
     }
 
+    /// Add an event channel for real-time updates
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use trading_engine::runner::SymbolRunner;
+    /// # use trading_engine::strategy::LuaStrategy;
+    /// # use tokio::sync::mpsc;
+    /// # let (data_tx, data_rx) = mpsc::unbounded_channel();
+    /// # let strategy = LuaStrategy::new("test.lua").unwrap();
+    /// let (event_tx, event_rx) = mpsc::unbounded_channel();
+    /// let runner = SymbolRunner::new("id".to_string(), "BTC".to_string(), strategy, data_rx, 50)
+    ///     .with_event_channel(event_tx);
+    /// ```
+    pub fn with_event_channel(mut self, tx: mpsc::UnboundedSender<RunnerEvent>) -> Self {
+        self.event_tx = Some(tx);
+        self
+    }
+
+    /// Get the runner ID
+    pub fn runner_id(&self) -> &str {
+        &self.runner_id
+    }
+
     /// Get the symbol being traded
     pub fn symbol(&self) -> &str {
         &self.symbol
+    }
+
+    /// Emit an event (if event channel is configured)
+    fn emit_event(&self, event: RunnerEvent) {
+        if let Some(tx) = &self.event_tx {
+            // Ignore send errors (subscriber may have disconnected)
+            let _ = tx.send(event);
+        }
     }
 
     /// Get the current state
@@ -191,8 +240,22 @@ impl SymbolRunner {
             }
 
             // Process the tick
-            if let Err(e) = self.process_tick(market_data).await {
+            if let Err(e) = self.process_tick(market_data.clone()).await {
                 tracing::error!("Error processing tick for {}: {}", self.symbol, e);
+
+                // Emit error event
+                let severity = if self.config.stop_on_error {
+                    ErrorSeverity::Critical
+                } else {
+                    ErrorSeverity::Error
+                };
+
+                self.emit_event(RunnerEvent::Error {
+                    runner_id: self.runner_id.clone(),
+                    error: e.to_string(),
+                    severity,
+                    timestamp: market_data.timestamp,
+                });
 
                 if self.config.stop_on_error {
                     return Err(e);
@@ -211,6 +274,13 @@ impl SymbolRunner {
     async fn process_tick(&mut self, market_data: MarketData) -> Result<()> {
         let tick_start = Instant::now();
 
+        // Emit tick received event
+        self.emit_event(RunnerEvent::TickReceived {
+            runner_id: self.runner_id.clone(),
+            symbol: self.symbol.clone(),
+            data: market_data.clone(),
+        });
+
         // Update window
         self.window.push(market_data.clone());
 
@@ -225,6 +295,9 @@ impl SymbolRunner {
         // Create indicator API
         let indicator_api = IndicatorApi::new(self.window.clone());
 
+        // Track state before strategy execution
+        let state_before = *self.state_machine.current_state();
+
         // Call strategy based on current state
         let action = match self.state_machine.current_state() {
             State::Idle => self.handle_idle(&market_data, &indicator_api)?,
@@ -233,16 +306,77 @@ impl SymbolRunner {
         };
 
         // Execute action if returned
-        if let Some(act) = action {
+        if let Some(act) = action.clone() {
             if self.config.log_actions {
                 tracing::info!("Symbol {}: Executing action: {:?}", self.symbol, act);
             }
-            self.state_machine.execute(act)?;
+
+            // Check if this is a position opening action
+            let is_position_open = act.is_entry();
+
+            self.state_machine.execute(act.clone())?;
             self.stats.record_action();
+
+            // Emit action executed event
+            self.emit_event(RunnerEvent::ActionExecuted {
+                runner_id: self.runner_id.clone(),
+                action: act,
+                timestamp: market_data.timestamp,
+            });
+
+            // Emit position opened event if entering position
+            if is_position_open {
+                if let Some(position) = self.state_machine.position() {
+                    self.emit_event(RunnerEvent::PositionOpened {
+                        runner_id: self.runner_id.clone(),
+                        position: position.clone(),
+                        timestamp: market_data.timestamp,
+                    });
+                }
+            }
         }
 
         // Update state machine (handles auto-exits)
+        let position_before = self.state_machine.position().cloned();
         self.state_machine.update(&market_data);
+        let state_after = *self.state_machine.current_state();
+
+        // Emit state transition event if state changed
+        if state_before != state_after {
+            self.emit_event(RunnerEvent::StateTransition {
+                runner_id: self.runner_id.clone(),
+                from: state_before,
+                to: state_after,
+                reason: format!("State machine transition"),
+                timestamp: market_data.timestamp,
+            });
+        }
+
+        // Emit position update or closed event
+        if let Some(position) = self.state_machine.position() {
+            // Position still active - emit update
+            if let Some(unrealized_pnl) = position.unrealized_pnl() {
+                self.emit_event(RunnerEvent::PositionUpdated {
+                    runner_id: self.runner_id.clone(),
+                    current_price: market_data.close,
+                    unrealized_pnl,
+                    timestamp: market_data.timestamp,
+                });
+            }
+        } else if position_before.is_some() {
+            // Position was closed
+            if let Some(pos) = position_before {
+                if let Some(realized_pnl) = pos.realized_pnl() {
+                    self.emit_event(RunnerEvent::PositionClosed {
+                        runner_id: self.runner_id.clone(),
+                        exit_price: pos.current_price(),
+                        realized_pnl,
+                        reason: "Position closed".to_string(),
+                        timestamp: market_data.timestamp,
+                    });
+                }
+            }
+        }
 
         // Record statistics
         let tick_duration = tick_start.elapsed();
@@ -367,8 +501,15 @@ mod tests {
         let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
             .expect("Failed to load test strategy");
 
-        let runner = SymbolRunner::new("BTCUSDT".to_string(), strategy, rx, 50);
+        let runner = SymbolRunner::new(
+            "test_runner".to_string(),
+            "BTCUSDT".to_string(),
+            strategy,
+            rx,
+            50
+        );
 
+        assert_eq!(runner.runner_id(), "test_runner");
         assert_eq!(runner.symbol(), "BTCUSDT");
         assert_eq!(runner.state(), State::Idle);
     }
@@ -379,7 +520,13 @@ mod tests {
         let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
             .expect("Failed to load test strategy");
 
-        let mut runner = SymbolRunner::new("BTCUSDT".to_string(), strategy, rx, 50);
+        let mut runner = SymbolRunner::new(
+            "test_runner".to_string(),
+            "BTCUSDT".to_string(),
+            strategy,
+            rx,
+            50
+        );
 
         // Send data
         tx.send(create_test_data(50000.0)).unwrap();
@@ -390,5 +537,34 @@ mod tests {
 
         // Check window has data
         assert_eq!(runner.window.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_runner_events() {
+        let (data_tx, data_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
+            .expect("Failed to load test strategy");
+
+        let mut runner = SymbolRunner::new(
+            "test_runner".to_string(),
+            "BTCUSDT".to_string(),
+            strategy,
+            data_rx,
+            50
+        )
+        .with_event_channel(event_tx);
+
+        // Send tick
+        data_tx.send(create_test_data(50000.0)).unwrap();
+
+        // Process tick
+        let data = runner.data_receiver.recv().await.unwrap();
+        runner.process_tick(data).await.unwrap();
+
+        // Should have received TickReceived event
+        let event = event_rx.try_recv().unwrap();
+        assert_eq!(event.runner_id(), "test_runner");
+        assert!(matches!(event, RunnerEvent::TickReceived { .. }));
     }
 }

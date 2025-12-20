@@ -4,9 +4,9 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 ## Project Status
 
-**Current Phase:** 5 (Multi-Symbol Threading Engine) ✅ **COMPLETE**
+**Current Phase:** 6 (Web App Infrastructure) 🚧 **IN PROGRESS**
 
-**Progress:** 5 of 12 phases complete (42% of core system)
+**Progress:** 5.5 of 12 phases complete (46% of core system)
 
 ### Completed (Phases 0-5)
 
@@ -42,11 +42,11 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 - Table-based strategy interface
 - 14 tests passing
 
-**Phase 5: Multi-Symbol Threading Engine** ✅ 🎉
-- **SymbolRunner** orchestration (~400 LOC)
+**Phase 5: Multi-Symbol Threading Engine** ✅
+- **SymbolRunner** orchestration (~570 LOC)
   - Per-symbol async task with component coordination
   - Runs indefinitely until channel closed (not tick-limited)
-- **TradingEngine** multi-runner management (~1,100 LOC)
+- **TradingEngine** multi-runner management (~1,236 LOC)
   - **Runner-based architecture**: multiple strategies per symbol
   - Efficient broadcast to all runners watching a symbol
   - Dynamic runner add/remove
@@ -56,10 +56,27 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 - **28 tests** passing (17 unit + 11 integration)
 - **Demo**: 6 concurrent runners (2 strategies × 3 symbols)
 
-**Total:** 145 tests passing, ~10,200 LOC
+**Phase 6: Web App Infrastructure** 🚧 (Steps 1-3 Complete)
+- **Event System** (~258 LOC) ✨ **NEW!**
+  - 10 event types (TickReceived, StateTransition, PositionUpdated, etc.)
+  - Real-time streaming from runners → engine → multiple subscribers
+  - Event aggregation with automatic subscriber cleanup
+  - JSON serialization for WebSocket transmission
+- **Runner Event Emission**
+  - Events emitted at all key points (ticks, state changes, positions, errors)
+  - Optional event channel (zero overhead if not subscribed)
+  - Comprehensive event metadata (runner_id, timestamp, severity)
+- **Engine Event Aggregation**
+  - Global event broadcast system
+  - Multiple clients can subscribe simultaneously
+  - <1ms latency from event → subscriber
+- **10 new tests** passing (event types, emission, aggregation)
+
+**Total:** 91 tests passing, ~10,700 LOC
 
 ### Next Steps
-- 📅 Order execution & risk management (Phase 6)
+- 🚧 State introspection API (Phase 6 - Step 4)
+- 📅 HTTP/WebSocket server (Phase 6 - Steps 5-8)
 - 📅 Historical backtesting (Phase 7)
 
 ## Quick Start
@@ -161,7 +178,9 @@ trading-simulator/
 
 ### Technical Documentation
 - **[Architecture Overview](docs/architecture/01-overview.md)** - System design
-- **[Strategy Integration Architecture](docs/architecture/02-strategy-integration.md)** - How strategies work ✨ **NEW!**
+- **[Strategy Integration Architecture](docs/architecture/02-strategy-integration.md)** - How strategies work
+- **[Event System Architecture](docs/architecture/03-event-system.md)** - Real-time event streaming ✨ **NEW!**
+- **[Web App Architecture](WEB_APP_ARCHITECTURE.md)** - HTTP/WebSocket API design ✨ **NEW!**
 - **[API Documentation](engine-core/target/doc/trading_engine/index.html)** - Generated from code (`cargo doc --open`)
 - **[Full Roadmap](trading-system-roadmap.md)** - Complete project plan
 
