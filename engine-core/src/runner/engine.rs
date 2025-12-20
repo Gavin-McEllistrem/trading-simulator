@@ -80,7 +80,7 @@ use crate::error::{Result, TradingEngineError};
 use crate::events::RunnerEvent;
 use crate::market_data::MarketData;
 use crate::strategy::LuaStrategy;
-use super::{RunnerConfig, SymbolRunner};
+use super::{RunnerConfig, RunnerCommand, RunnerSnapshot, SymbolRunner};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -96,6 +96,9 @@ struct RunnerHandle {
 
     /// Channel sender for market data
     tx: mpsc::UnboundedSender<MarketData>,
+
+    /// Channel sender for commands (introspection)
+    cmd_tx: mpsc::UnboundedSender<RunnerCommand>,
 
     /// Task handle for the runner
     task: JoinHandle<Result<()>>,
@@ -362,7 +365,10 @@ impl TradingEngine {
         // Create channel for market data
         let (tx, rx) = mpsc::unbounded_channel();
 
-        // Create runner with event channel
+        // Create channel for commands
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+
+        // Create runner with event channel and command channel
         let mut runner = SymbolRunner::new(
             runner_id.clone(),
             symbol.clone(),
@@ -371,7 +377,8 @@ impl TradingEngine {
             window_size
         )
         .with_config(config)
-        .with_event_channel(self.event_tx.clone());
+        .with_event_channel(self.event_tx.clone())
+        .with_command_channel(cmd_rx);
 
         // Emit RunnerStarted event
         let _ = self.event_tx.send(RunnerEvent::RunnerStarted {
@@ -423,6 +430,7 @@ impl TradingEngine {
                 runner_id: runner_id.clone(),
                 symbol: symbol.clone(),
                 tx,
+                cmd_tx,
                 task,
                 started_at: std::time::Instant::now(),
             },
@@ -880,6 +888,115 @@ impl TradingEngine {
 
         results
     }
+
+    /// Get a snapshot of a runner's current state
+    ///
+    /// This method queries the runner for its current state, including:
+    /// - Current FSM state
+    /// - Position information (if any)
+    /// - Strategy context data
+    /// - Statistics
+    ///
+    /// # Arguments
+    ///
+    /// * `runner_id` - The unique ID of the runner to query
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(RunnerSnapshot)` if the runner exists and is running,
+    /// or `None` if the runner doesn't exist or the command channel is closed.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use trading_engine::runner::TradingEngine;
+    /// # #[tokio::main]
+    /// # async fn main() -> anyhow::Result<()> {
+    /// let mut engine = TradingEngine::new();
+    /// // ... add runners ...
+    ///
+    /// if let Some(snapshot) = engine.get_runner_snapshot("btc_ema").await {
+    ///     println!("Runner state: {}", snapshot.state_str());
+    ///     println!("Ticks processed: {}", snapshot.stats.ticks_processed);
+    ///     if let Some(pos) = &snapshot.position {
+    ///         println!("Position: {} at ${}", pos.side(), pos.entry_price());
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_runner_snapshot(&self, runner_id: &str) -> Option<RunnerSnapshot> {
+        // Get the runner handle
+        let handle = self.runners.get(runner_id)?;
+
+        // Create oneshot channel for response
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+        // Send GetSnapshot command
+        let cmd = RunnerCommand::GetSnapshot { response: response_tx };
+        handle.cmd_tx.send(cmd).ok()?;
+
+        // Wait for response (with timeout to avoid hanging)
+        tokio::time::timeout(std::time::Duration::from_millis(100), response_rx)
+            .await
+            .ok()?
+            .ok()
+    }
+
+    /// Get recent price history from a runner's data window
+    ///
+    /// # Arguments
+    ///
+    /// * `runner_id` - The unique ID of the runner to query
+    /// * `count` - Optional number of recent data points to retrieve (all if None)
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(Vec<MarketData>)` if the runner exists,
+    /// or `None` if the runner doesn't exist or the command channel is closed.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use trading_engine::runner::TradingEngine;
+    /// # #[tokio::main]
+    /// # async fn main() -> anyhow::Result<()> {
+    /// let mut engine = TradingEngine::new();
+    /// // ... add runners and feed data ...
+    ///
+    /// // Get last 10 data points
+    /// if let Some(history) = engine.get_price_history("btc_ema", Some(10)).await {
+    ///     for data in history {
+    ///         println!("{}: ${}", data.symbol, data.close);
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_price_history(
+        &self,
+        runner_id: &str,
+        count: Option<usize>,
+    ) -> Option<Vec<MarketData>> {
+        // Get the runner handle
+        let handle = self.runners.get(runner_id)?;
+
+        // Create oneshot channel for response
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+        // Send GetPriceHistory command
+        let cmd = RunnerCommand::GetPriceHistory {
+            count,
+            response: response_tx,
+        };
+        handle.cmd_tx.send(cmd).ok()?;
+
+        // Wait for response (with timeout)
+        tokio::time::timeout(std::time::Duration::from_millis(100), response_rx)
+            .await
+            .ok()?
+            .ok()
+    }
 }
 
 impl Default for TradingEngine {
@@ -1231,5 +1348,101 @@ mod tests {
         ).await.unwrap().unwrap();
 
         assert_eq!(event1.runner_id(), event2.runner_id());
+    }
+
+    #[tokio::test]
+    async fn test_get_runner_snapshot() {
+        let mut engine = TradingEngine::new();
+        let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
+            .expect("Failed to load test strategy");
+
+        // Add runner
+        engine.add_runner("btc_ema", "BTCUSDT", strategy).unwrap();
+
+        // Give runner time to start
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Feed some data
+        let data = MarketData {
+            symbol: "BTCUSDT".to_string(),
+            timestamp: 1234567890,
+            open: 50000.0,
+            high: 50100.0,
+            low: 49900.0,
+            close: 50050.0,
+            volume: 1000,
+            bid: 50045.0,
+            ask: 50055.0,
+        };
+        engine.feed_data(data).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Get snapshot
+        let snapshot = engine.get_runner_snapshot("btc_ema").await;
+        assert!(snapshot.is_some());
+
+        let snapshot = snapshot.unwrap();
+        assert_eq!(snapshot.runner_id, "btc_ema");
+        assert_eq!(snapshot.symbol, "BTCUSDT");
+        assert!(snapshot.stats.ticks_processed >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_price_history() {
+        let mut engine = TradingEngine::new();
+        let strategy = LuaStrategy::new("../lua-strategies/test_strategy.lua")
+            .expect("Failed to load test strategy");
+
+        // Add runner
+        engine.add_runner("btc_ema", "BTCUSDT", strategy).unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Feed multiple data points
+        for i in 0..5 {
+            let data = MarketData {
+                symbol: "BTCUSDT".to_string(),
+                timestamp: 1234567890 + i,
+                open: 50000.0 + (i as f64) * 10.0,
+                high: 50100.0 + (i as f64) * 10.0,
+                low: 49900.0 + (i as f64) * 10.0,
+                close: 50050.0 + (i as f64) * 10.0,
+                volume: 1000,
+                bid: 50045.0 + (i as f64) * 10.0,
+                ask: 50055.0 + (i as f64) * 10.0,
+            };
+            engine.feed_data(data).await.unwrap();
+            tokio::time::sleep(tokio::time::Duration::from_millis(5)).await;
+        }
+
+        // Get all history
+        let history = engine.get_price_history("btc_ema", None).await;
+        assert!(history.is_some());
+        let history = history.unwrap();
+        assert_eq!(history.len(), 5);
+
+        // Get last 3 data points
+        let history = engine.get_price_history("btc_ema", Some(3)).await;
+        assert!(history.is_some());
+        let history = history.unwrap();
+        assert_eq!(history.len(), 3);
+
+        // Verify last element has highest price
+        let last = history.last().unwrap();
+        assert_eq!(last.close, 50050.0 + 40.0); // 4th data point (0-indexed)
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_nonexistent_runner() {
+        let engine = TradingEngine::new();
+
+        // Try to get snapshot of non-existent runner
+        let snapshot = engine.get_runner_snapshot("nonexistent").await;
+        assert!(snapshot.is_none());
+
+        // Try to get history of non-existent runner
+        let history = engine.get_price_history("nonexistent", None).await;
+        assert!(history.is_none());
     }
 }

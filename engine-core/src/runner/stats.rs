@@ -1,9 +1,10 @@
 //! Runner statistics and metrics
 
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Statistics for a SymbolRunner
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunnerStats {
     /// Total ticks processed
     pub ticks_processed: u64,

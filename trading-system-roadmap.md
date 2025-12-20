@@ -97,10 +97,16 @@ Build a high-performance, multi-threaded trading system with:
   - Runner event emission at all critical points
   - Engine event aggregation with broadcast to multiple subscribers
   - <1ms latency, <0.1% CPU overhead
-  - 10 new tests passing (event types, emission, aggregation)
+  - 10 tests passing (event types, emission, aggregation)
   - JSON serialization for WebSocket transmission
-- 📅 State introspection API (Step 4 - Next)
-- 📅 HTTP/WebSocket server (Steps 5-8)
+- ✅ **State Introspection API** (Step 4 Complete) ✨ **NEW!**
+  - Command channel for on-demand state queries (193 LOC)
+  - `get_runner_snapshot()` - Query state, position, context, stats
+  - `get_price_history()` - Query recent price data
+  - RunnerSnapshot with full JSON serialization
+  - Non-blocking queries with 100ms timeout
+  - 7 tests passing (snapshot creation, queries, error handling)
+- 📅 HTTP/WebSocket server (Steps 5-8 - Next)
 - 📅 Dashboard integration (Steps 9-10)
 
 **Documentation** ✅ **COMPLETE** (Day 1-6)
@@ -146,11 +152,13 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ **Phase 5 Tests:** 28 tests passing
   - 17 engine unit tests (creation, add/remove, health monitoring)
   - 11 integration tests (single runner, multi-symbol, concurrent processing)
-- ✅ **Phase 6 Tests:** 10 tests passing ✨ **NEW!**
+- ✅ **Phase 6 Tests:** 17 tests passing ✨ **NEW!**
   - 7 event type tests (serialization, helpers, classification)
   - 1 runner emission test
   - 2 engine aggregation tests (single + multiple subscribers)
-- ✅ **Total: 155 tests, all passing** ✅
+  - 4 snapshot unit tests (creation, serialization, context)
+  - 3 introspection integration tests (snapshot query, history query, error handling)
+- ✅ **Total: 98 tests, all passing** ✅
 - ✅ Test organization: Unit, Integration, Verification, Doc, Live
 - ✅ Comprehensive coverage across all phases
 
@@ -195,26 +203,26 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ Demo application with dual mode (simulated + live Binance)
 
 **Project Metrics (Day 6 Summary):**
-- **Total Code:** ~10,700 LOC
-  - Rust production: ~7,600 LOC (engine core + runner system + events)
+- **Total Code:** ~10,900 LOC
+  - Rust production: ~7,800 LOC (engine core + runner system + events + introspection)
   - OCaml: 1,606 LOC (indicators)
   - Lua strategies: 474 LOC (3 examples)
   - Tests/Examples: ~1,100 LOC
-- **Total Tests:** 155 passing ✅
+- **Total Tests:** 98 passing ✅
   - Phase 1 (Market Data): 47 tests
   - Phase 2 (Indicators): 48 tests (40 Rust + 8 OCaml)
   - Phase 3 (State Machine): 28 tests
   - Phase 4 (Lua Strategies): 14 tests
   - Phase 5 (Multi-Symbol Engine): 28 tests (17 unit + 11 integration)
-  - Phase 6 (Web App Events): 10 tests (event types + emission + aggregation)
-- **Documentation:** 17+ guides, 5 ADRs, 6 phase summaries, comprehensive API docs
-- **Completion:** 5.5 of 12 phases complete (46% of core system)
+  - Phase 6 (Web App): 17 tests (10 event system + 7 introspection)
+- **Documentation:** 17+ guides, 5 ADRs, 7 phase summaries, comprehensive API docs
+- **Completion:** 5.67 of 12 phases complete (47% of core system, Phase 6: 40% complete)
 
 **Next Milestone:** Complete Web App Infrastructure (Phase 6, Week 8)
 - **Goal:** Real-time monitoring and control via web dashboard
-- **Current:** Event system foundation complete (Steps 1-3 done)
-- **Next:** State introspection API (Step 4), HTTP/WebSocket server (Steps 5-8)
-- **Will Enable:** Live dashboard with real-time charts, position tracking, and runner control
+- **Current:** Event system + introspection API complete (Steps 1-4 done)
+- **Next:** HTTP/WebSocket server (Steps 5-8), integration tests (Steps 9-10)
+- **Will Enable:** Live dashboard with real-time charts, position tracking, runner control, and state queries
 
 ---
 
@@ -846,27 +854,37 @@ end
 - [x] Write 10 comprehensive tests (event types, emission, aggregation)
 - [x] Create architecture documentation (docs/architecture/03-event-system.md)
 
-### 6.2 State Introspection API (Step 4) 📅 NEXT
-- [ ] Add command channel to SymbolRunner
-  - Implement `RunnerCommand` enum (GetSnapshot, GetPriceHistory, etc.)
-  - Add `mpsc::unbounded` command channel to runner
-- [ ] Define `RunnerSnapshot` type:
-  ```rust
-  pub struct RunnerSnapshot {
-      pub runner_id: String,
-      pub symbol: String,
-      pub current_state: State,
-      pub position: Option<Position>,
-      pub context: HashMap<String, Value>,
-      pub stats: RunnerStats,
-      pub uptime: Duration,
-  }
-  ```
-- [ ] Implement `get_runner_snapshot(runner_id)` in TradingEngine
-- [ ] Implement `get_price_history(runner_id, count)` method
-- [ ] Add snapshot tests
+### 6.2 State Introspection API (Step 4) ✅ COMPLETE
+- [x] Created command & snapshot types (src/runner/snapshot.rs - 193 LOC)
+  - Implemented `RunnerCommand` enum (GetSnapshot, GetPriceHistory)
+  - Implemented `RunnerSnapshot` struct with full state capture
+  - Implemented `ContextSnapshot` for strategy context
+  - Added oneshot channel pattern for request-response
+- [x] Added command channel to SymbolRunner
+  - New field: `command_rx: Option<mpsc::UnboundedReceiver<RunnerCommand>>`
+  - Builder method: `with_command_channel(rx)`
+  - Modified `run()` loop to use `tokio::select!` for concurrent processing
+- [x] Implemented command processing
+  - `handle_command()` - Process introspection requests
+  - `create_snapshot()` - Build snapshot from current state
+  - `create_context_snapshot()` - Extract context data
+  - `get_price_history()` - Extract window data
+- [x] Added TradingEngine introspection API
+  - `get_runner_snapshot(runner_id)` - Query current state (100ms timeout)
+  - `get_price_history(runner_id, count)` - Query price window
+  - Both return `Option<T>` for graceful failure
+- [x] Added Serde serialization to RunnerStats and Context
+- [x] Write 7 comprehensive tests (snapshot unit tests + integration tests)
+- [x] Create completion documentation (changes/2025-12-20-phase6-state-introspection.md)
 
-### 6.3 HTTP Server Setup (Step 5)
+**Key Features:**
+- Non-blocking queries via oneshot channels
+- Concurrent command processing with market data
+- Full JSON serialization for REST API
+- <1ms typical latency, 100ms timeout
+- Zero overhead if not used
+
+### 6.3 HTTP Server Setup (Step 5) 📅 NEXT
 - [ ] Add axum dependencies
 - [ ] Create basic server with health endpoint
 - [ ] Implement CORS middleware

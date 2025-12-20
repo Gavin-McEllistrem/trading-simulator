@@ -22,16 +22,16 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// String storage
-    strings: HashMap<String, String>,
+    pub strings: HashMap<String, String>,
 
     /// Numeric storage
-    numbers: HashMap<String, f64>,
+    pub numbers: HashMap<String, f64>,
 
     /// Integer storage
-    integers: HashMap<String, i64>,
+    pub integers: HashMap<String, i64>,
 
     /// Boolean storage
-    booleans: HashMap<String, bool>,
+    pub booleans: HashMap<String, bool>,
 }
 
 impl Context {

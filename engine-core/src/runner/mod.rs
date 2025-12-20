@@ -56,10 +56,12 @@ use std::time::Instant;
 mod config;
 mod stats;
 mod engine;
+mod snapshot;
 
 pub use config::RunnerConfig;
 pub use stats::RunnerStats;
 pub use engine::TradingEngine;
+pub use snapshot::{RunnerCommand, RunnerSnapshot, ContextSnapshot};
 
 /// Per-symbol trading orchestrator
 ///
@@ -98,6 +100,9 @@ pub struct SymbolRunner {
 
     /// Optional event channel for real-time updates
     event_tx: Option<mpsc::UnboundedSender<RunnerEvent>>,
+
+    /// Optional command channel for state introspection
+    command_rx: Option<mpsc::UnboundedReceiver<RunnerCommand>>,
 }
 
 impl SymbolRunner {
@@ -150,6 +155,7 @@ impl SymbolRunner {
             stats: RunnerStats::new(),
             start_time: Instant::now(),
             event_tx: None,
+            command_rx: None,
         }
     }
 
@@ -178,6 +184,27 @@ impl SymbolRunner {
         self
     }
 
+    /// Add a command channel for state introspection
+    ///
+    /// Allows external systems to query runner state on-demand.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use trading_engine::runner::SymbolRunner;
+    /// # use trading_engine::strategy::LuaStrategy;
+    /// # use tokio::sync::mpsc;
+    /// # let (data_tx, data_rx) = mpsc::unbounded_channel();
+    /// # let strategy = LuaStrategy::new("test.lua").unwrap();
+    /// let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+    /// let runner = SymbolRunner::new("id".to_string(), "BTC".to_string(), strategy, data_rx, 50)
+    ///     .with_command_channel(cmd_rx);
+    /// ```
+    pub fn with_command_channel(mut self, rx: mpsc::UnboundedReceiver<RunnerCommand>) -> Self {
+        self.command_rx = Some(rx);
+        self
+    }
+
     /// Get the runner ID
     pub fn runner_id(&self) -> &str {
         &self.runner_id
@@ -193,6 +220,64 @@ impl SymbolRunner {
         if let Some(tx) = &self.event_tx {
             // Ignore send errors (subscriber may have disconnected)
             let _ = tx.send(event);
+        }
+    }
+
+    /// Handle introspection commands
+    fn handle_command(&self, cmd: RunnerCommand) {
+        match cmd {
+            RunnerCommand::GetSnapshot { response } => {
+                let snapshot = self.create_snapshot();
+                // Ignore send errors (requester may have cancelled)
+                let _ = response.send(snapshot);
+            }
+            RunnerCommand::GetPriceHistory { count, response } => {
+                let history = self.get_price_history(count);
+                let _ = response.send(history);
+            }
+        }
+    }
+
+    /// Create a snapshot of the current runner state
+    fn create_snapshot(&self) -> RunnerSnapshot {
+        RunnerSnapshot::new(
+            self.runner_id.clone(),
+            self.symbol.clone(),
+            *self.state_machine.current_state(),
+            self.state_machine.position().cloned(),
+            self.create_context_snapshot(),
+            self.stats.clone(),
+            self.start_time.elapsed(),
+        )
+    }
+
+    /// Create a snapshot of the strategy context
+    fn create_context_snapshot(&self) -> ContextSnapshot {
+        let context = self.state_machine.context();
+
+        ContextSnapshot {
+            strings: context.strings.clone(),
+            numbers: context.numbers.clone(),
+            integers: context.integers.clone(),
+            booleans: context.booleans.clone(),
+        }
+    }
+
+    /// Get recent price history from the data window
+    fn get_price_history(&self, count: Option<usize>) -> Vec<MarketData> {
+        let window_data: Vec<MarketData> = self.window.iter().cloned().collect();
+
+        match count {
+            Some(n) => {
+                // Return last N elements
+                let start = if window_data.len() > n {
+                    window_data.len() - n
+                } else {
+                    0
+                };
+                window_data[start..].to_vec()
+            }
+            None => window_data,
         }
     }
 
@@ -220,49 +305,65 @@ impl SymbolRunner {
         tracing::info!("Starting SymbolRunner for {}", self.symbol);
 
         loop {
-            // Receive next market data
-            let market_data = match self.data_receiver.recv().await {
-                Some(data) => data,
-                None => {
-                    tracing::info!("Channel closed for {}, shutting down", self.symbol);
-                    break;
+            tokio::select! {
+                // Handle incoming market data
+                data_result = self.data_receiver.recv() => {
+                    let market_data = match data_result {
+                        Some(data) => data,
+                        None => {
+                            tracing::info!("Channel closed for {}, shutting down", self.symbol);
+                            break;
+                        }
+                    };
+
+                    // Validate symbol matches
+                    if market_data.symbol != self.symbol {
+                        tracing::warn!(
+                            "Received data for {} but runner is for {}",
+                            market_data.symbol,
+                            self.symbol
+                        );
+                        continue;
+                    }
+
+                    // Process the tick
+                    if let Err(e) = self.process_tick(market_data.clone()).await {
+                        tracing::error!("Error processing tick for {}: {}", self.symbol, e);
+
+                        // Emit error event
+                        let severity = if self.config.stop_on_error {
+                            ErrorSeverity::Critical
+                        } else {
+                            ErrorSeverity::Error
+                        };
+
+                        self.emit_event(RunnerEvent::Error {
+                            runner_id: self.runner_id.clone(),
+                            error: e.to_string(),
+                            severity,
+                            timestamp: market_data.timestamp,
+                        });
+
+                        if self.config.stop_on_error {
+                            return Err(e);
+                        }
+
+                        // Continue on error if configured
+                        self.stats.record_error();
+                    }
+                },
+
+                // Handle introspection commands
+                cmd_result = async {
+                    match &mut self.command_rx {
+                        Some(rx) => rx.recv().await,
+                        None => std::future::pending().await, // Never resolves if no command channel
+                    }
+                } => {
+                    if let Some(cmd) = cmd_result {
+                        self.handle_command(cmd);
+                    }
                 }
-            };
-
-            // Validate symbol matches
-            if market_data.symbol != self.symbol {
-                tracing::warn!(
-                    "Received data for {} but runner is for {}",
-                    market_data.symbol,
-                    self.symbol
-                );
-                continue;
-            }
-
-            // Process the tick
-            if let Err(e) = self.process_tick(market_data.clone()).await {
-                tracing::error!("Error processing tick for {}: {}", self.symbol, e);
-
-                // Emit error event
-                let severity = if self.config.stop_on_error {
-                    ErrorSeverity::Critical
-                } else {
-                    ErrorSeverity::Error
-                };
-
-                self.emit_event(RunnerEvent::Error {
-                    runner_id: self.runner_id.clone(),
-                    error: e.to_string(),
-                    severity,
-                    timestamp: market_data.timestamp,
-                });
-
-                if self.config.stop_on_error {
-                    return Err(e);
-                }
-
-                // Continue on error if configured
-                self.stats.record_error();
             }
         }
 

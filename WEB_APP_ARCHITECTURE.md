@@ -1,8 +1,15 @@
 # Web App Infrastructure - Phase 6
 
-**Status:** 🚧 In Development
+**Status:** 🚧 In Development (40% Complete - Steps 1-4 Done)
 
 **Goal:** Build HTTP/WebSocket API to enable a web-based trading dashboard with live charts, runner management, and strategy creation.
+
+**Completed:**
+- ✅ Event streaming system (Steps 1-3)
+- ✅ State introspection API (Step 4)
+
+**Next:**
+- 📅 HTTP/WebSocket server (Steps 5-8)
 
 ---
 

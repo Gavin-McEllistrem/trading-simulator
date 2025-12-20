@@ -6,7 +6,7 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 **Current Phase:** 6 (Web App Infrastructure) 🚧 **IN PROGRESS**
 
-**Progress:** 5.5 of 12 phases complete (46% of core system)
+**Progress:** 5.67 of 12 phases complete (47% of core system, Phase 6: 40% complete)
 
 ### Completed (Phases 0-5)
 
@@ -56,26 +56,28 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 - **28 tests** passing (17 unit + 11 integration)
 - **Demo**: 6 concurrent runners (2 strategies × 3 symbols)
 
-**Phase 6: Web App Infrastructure** 🚧 (Steps 1-3 Complete)
-- **Event System** (~258 LOC) ✨ **NEW!**
+**Phase 6: Web App Infrastructure** 🚧 (Steps 1-4 Complete)
+- **Event System** (~258 LOC)
   - 10 event types (TickReceived, StateTransition, PositionUpdated, etc.)
   - Real-time streaming from runners → engine → multiple subscribers
   - Event aggregation with automatic subscriber cleanup
   - JSON serialization for WebSocket transmission
-- **Runner Event Emission**
-  - Events emitted at all key points (ticks, state changes, positions, errors)
-  - Optional event channel (zero overhead if not subscribed)
-  - Comprehensive event metadata (runner_id, timestamp, severity)
-- **Engine Event Aggregation**
-  - Global event broadcast system
-  - Multiple clients can subscribe simultaneously
-  - <1ms latency from event → subscriber
-- **10 new tests** passing (event types, emission, aggregation)
+  - 10 tests passing (event types, emission, aggregation)
+- **State Introspection API** (~195 LOC) ✨ **NEW!**
+  - Command channel for querying runner state on-demand
+  - `get_runner_snapshot()` - Query current state, position, context, stats
+  - `get_price_history()` - Query recent price data from window
+  - RunnerSnapshot with full JSON serialization
+  - Non-blocking queries with 100ms timeout
+  - 7 new tests passing (snapshot creation, queries, error handling)
+- **Architecture**
+  - Push model: Real-time events via pub-sub
+  - Pull model: On-demand snapshots via request-response
+  - Combined: Complete observability for web dashboards
 
-**Total:** 91 tests passing, ~10,700 LOC
+**Total:** 98 tests passing, ~10,900 LOC
 
 ### Next Steps
-- 🚧 State introspection API (Phase 6 - Step 4)
 - 📅 HTTP/WebSocket server (Phase 6 - Steps 5-8)
 - 📅 Historical backtesting (Phase 7)
 
@@ -196,6 +198,9 @@ trading-simulator/
 - [Phase 2: Technical Indicators](changes/2025-12-18-phase2-completion.md)
 - [Phase 3: State Machine Core](changes/2025-12-18-phase3-completion.md)
 - [Phase 4: Lua Strategy Integration](changes/2025-12-18-phase4-completion.md)
+- [Phase 5: Multi-Symbol Threading Engine](changes/2025-12-19-phase5-completion.md)
+- [Phase 6: Event System (Steps 1-3)](changes/2025-12-20-phase6-event-system.md)
+- [Phase 6: State Introspection (Step 4)](changes/2025-12-20-phase6-state-introspection.md) ✨ **NEW!**
 
 ## Development
 
