@@ -3,13 +3,11 @@ import { useRunnerSnapshot, usePriceHistory } from '../hooks/useApi';
 import {
   ComposedChart,
   Line,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 
 export function RunnerDetail() {

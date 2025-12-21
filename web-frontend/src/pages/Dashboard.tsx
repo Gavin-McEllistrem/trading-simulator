@@ -1,11 +1,21 @@
 import { useState } from 'react';
-import { useEngineSummary } from '../hooks/useApi';
-import { Link } from 'react-router-dom';
+import { useEngineSummary, useAllRunnerSnapshots } from '../hooks/useApi';
 import { AddRunnerForm } from '../components/AddRunnerForm';
+import { RunnerListTable } from '../components/RunnerListTable';
 
 export function Dashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const { data: summary, isLoading, error, refetch } = useEngineSummary();
+
+  // Get runner IDs from summary
+  const runnerIds = summary?.runners.map((r) => r.runner_id) || [];
+
+  // Fetch snapshots for all runners
+  const {
+    data: snapshots,
+    isLoading: snapshotsLoading,
+    refetch: refetchSnapshots,
+  } = useAllRunnerSnapshots(runnerIds);
 
   if (isLoading) {
     return (
@@ -93,28 +103,18 @@ export function Dashboard() {
           </button>
         </div>
 
-        {summary.runners.length === 0 ? (
-          <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
-            No runners currently active
+        {snapshotsLoading && summary.runners.length > 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            Loading runner details...
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {summary.runners.map((runner) => (
-              <Link
-                key={runner.runner_id}
-                to={`/runner/${runner.runner_id}`}
-                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold">{runner.runner_id}</h3>
-                  <span className="text-sm text-gray-500">{runner.symbol}</span>
-                </div>
-                <div className="text-sm text-blue-600 hover:text-blue-800">
-                  View Details →
-                </div>
-              </Link>
-            ))}
-          </div>
+          <RunnerListTable
+            runners={snapshots || []}
+            onRunnerUpdated={() => {
+              refetch();
+              refetchSnapshots();
+            }}
+          />
         )}
       </div>
     </div>

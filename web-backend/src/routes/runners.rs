@@ -136,6 +136,78 @@ pub async fn remove_runner(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Response for control operations
+#[derive(Debug, Serialize)]
+pub struct ControlResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+/// Pause a runner
+///
+/// Pauses the runner's tick processing while preserving state.
+pub async fn pause_runner(
+    Path(runner_id): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<ControlResponse>, ApiError> {
+    let engine = state.engine.lock().await;
+
+    let success = engine
+        .pause_runner(&runner_id)
+        .await
+        .map_err(|e| ApiError::EngineError(e.to_string()))?;
+
+    let message = if success {
+        format!("Runner '{}' paused successfully", runner_id)
+    } else {
+        format!("Runner '{}' was not in a running state", runner_id)
+    };
+
+    Ok(Json(ControlResponse { success, message }))
+}
+
+/// Resume a paused runner
+///
+/// Resumes a paused runner's tick processing.
+pub async fn resume_runner(
+    Path(runner_id): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<ControlResponse>, ApiError> {
+    let engine = state.engine.lock().await;
+
+    let success = engine
+        .resume_runner(&runner_id)
+        .await
+        .map_err(|e| ApiError::EngineError(e.to_string()))?;
+
+    let message = if success {
+        format!("Runner '{}' resumed successfully", runner_id)
+    } else {
+        format!("Runner '{}' was not in a paused state", runner_id)
+    };
+
+    Ok(Json(ControlResponse { success, message }))
+}
+
+/// Stop a runner
+///
+/// Stops the runner completely. It cannot be resumed after stopping.
+pub async fn stop_runner(
+    Path(runner_id): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<ControlResponse>, ApiError> {
+    let engine = state.engine.lock().await;
+
+    let success = engine
+        .stop_runner(&runner_id)
+        .await
+        .map_err(|e| ApiError::EngineError(e.to_string()))?;
+
+    let message = format!("Runner '{}' stopped successfully", runner_id);
+
+    Ok(Json(ControlResponse { success, message }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

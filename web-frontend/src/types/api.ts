@@ -58,9 +58,12 @@ export interface Duration {
   nanos: number;
 }
 
+export type RunnerStatus = 'running' | 'paused' | 'stopped';
+
 export interface RunnerSnapshot {
   runner_id: string;
   symbol: string;
+  status: RunnerStatus;
   current_state: 'Idle' | 'Analyzing' | 'InPosition';
   position: Position | null;
   context: ContextSnapshot;
@@ -101,4 +104,29 @@ export interface AddRunnerResponse {
   runner_id: string;
   symbol: string;
   message: string;
+}
+
+export interface ControlResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface StrategyInfo {
+  name: string;
+  path: string;
+  category: string;
+}
+
+export interface StrategyListResponse {
+  strategies: StrategyInfo[];
+}
+
+export interface SymbolInfo {
+  symbol: string;
+  name: string;
+  category: string;
+}
+
+export interface SymbolListResponse {
+  symbols: SymbolInfo[];
 }

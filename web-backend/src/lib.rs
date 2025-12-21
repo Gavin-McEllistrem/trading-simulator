@@ -53,6 +53,13 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/api/runners", post(routes::runners::add_runner))
         .route("/api/runners/:id", delete(routes::runners::remove_runner))
+        // Runner control endpoints
+        .route("/api/runners/:id/pause", post(routes::runners::pause_runner))
+        .route("/api/runners/:id/resume", post(routes::runners::resume_runner))
+        .route("/api/runners/:id/stop", post(routes::runners::stop_runner))
+        // Strategy endpoints
+        .route("/api/strategies", get(routes::strategies::list_strategies))
+        .route("/api/symbols", get(routes::strategies::list_symbols))
         .with_state(state);
 
     // Add CORS middleware

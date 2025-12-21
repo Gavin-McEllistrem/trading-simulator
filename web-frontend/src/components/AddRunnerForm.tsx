@@ -1,4 +1,6 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { useStrategies, useSymbols } from '../hooks/useApi';
 import type { AddRunnerRequest } from '../types/api';
 
 interface AddRunnerFormProps {
@@ -15,6 +17,13 @@ export function AddRunnerForm({ onSuccess, onCancel }: AddRunnerFormProps) {
   });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch available strategies and symbols
+  const { data: strategiesData, isLoading: strategiesLoading } = useStrategies();
+  const strategies = strategiesData?.strategies || [];
+
+  const { data: symbolsData, isLoading: symbolsLoading } = useSymbols();
+  const symbols = symbolsData?.symbols || [];
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,32 +80,65 @@ export function AddRunnerForm({ onSuccess, onCancel }: AddRunnerFormProps) {
           <label htmlFor="symbol" className="block text-sm font-medium text-gray-700 mb-1">
             Symbol
           </label>
-          <input
-            type="text"
-            id="symbol"
-            value={formData.symbol}
-            onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            disabled={isSubmitting}
-            placeholder="e.g., AAPL, BTC/USD"
-          />
+          {symbolsLoading ? (
+            <div className="text-sm text-gray-500 py-2">Loading symbols...</div>
+          ) : symbols.length === 0 ? (
+            <div className="text-sm text-red-600 py-2">
+              No symbols available
+            </div>
+          ) : (
+            <select
+              id="symbol"
+              value={formData.symbol}
+              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              disabled={isSubmitting}
+            >
+              <option value="">Select a symbol...</option>
+              {/* Group symbols by category */}
+              {Array.from(new Set(symbols.map(s => s.category))).map(category => (
+                <optgroup key={category} label={category}>
+                  {symbols
+                    .filter(s => s.category === category)
+                    .map(symbol => (
+                      <option key={symbol.symbol} value={symbol.symbol}>
+                        {symbol.symbol} - {symbol.name}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
         </div>
 
         <div>
           <label htmlFor="strategy_path" className="block text-sm font-medium text-gray-700 mb-1">
-            Strategy Path
+            Strategy
           </label>
-          <input
-            type="text"
-            id="strategy_path"
-            value={formData.strategy_path}
-            onChange={(e) => setFormData({ ...formData, strategy_path: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            disabled={isSubmitting}
-            placeholder="e.g., strategies/momentum.lua"
-          />
+          {strategiesLoading ? (
+            <div className="text-sm text-gray-500 py-2">Loading strategies...</div>
+          ) : strategies.length === 0 ? (
+            <div className="text-sm text-red-600 py-2">
+              No strategies found in lua-strategies directory
+            </div>
+          ) : (
+            <select
+              id="strategy_path"
+              value={formData.strategy_path}
+              onChange={(e) => setFormData({ ...formData, strategy_path: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              disabled={isSubmitting}
+            >
+              <option value="">Select a strategy...</option>
+              {strategies.map((strategy) => (
+                <option key={strategy.path} value={strategy.path}>
+                  {strategy.name} ({strategy.category})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div>

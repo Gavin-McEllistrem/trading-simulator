@@ -6,6 +6,9 @@ import type {
   MarketData,
   AddRunnerRequest,
   AddRunnerResponse,
+  ControlResponse,
+  StrategyListResponse,
+  SymbolListResponse,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -76,6 +79,35 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  // Runner control endpoints
+  async pauseRunner(runnerId: string): Promise<ControlResponse> {
+    return this.fetch<ControlResponse>(`/api/runners/${runnerId}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  async resumeRunner(runnerId: string): Promise<ControlResponse> {
+    return this.fetch<ControlResponse>(`/api/runners/${runnerId}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  async stopRunner(runnerId: string): Promise<ControlResponse> {
+    return this.fetch<ControlResponse>(`/api/runners/${runnerId}/stop`, {
+      method: 'POST',
+    });
+  }
+
+  // Strategy endpoints
+  async listStrategies(): Promise<StrategyListResponse> {
+    return this.fetch<StrategyListResponse>('/api/strategies');
+  }
+
+  // Symbol endpoints
+  async listSymbols(): Promise<SymbolListResponse> {
+    return this.fetch<SymbolListResponse>('/api/symbols');
   }
 }
 

@@ -91,7 +91,7 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ Demo application with 6 concurrent runners (2 strategies × 3 symbols)
 - ✅ Total: ~1,600 LOC across 3 modules
 
-**Phase 6: Web App Infrastructure** 🚧 **IN PROGRESS** (Day 6)
+**Phase 6: Web App Infrastructure** ✅ **COMPLETE** (Day 6-7)
 - ✅ **Event System Foundation** (Steps 1-3 Complete)
   - Event type system with 10 event variants (258 LOC)
   - Runner event emission at all critical points
@@ -106,16 +106,20 @@ Build a high-performance, multi-threaded trading system with:
   - RunnerSnapshot with full JSON serialization
   - Non-blocking queries with 100ms timeout
   - 7 tests passing (snapshot creation, queries, error handling)
-- ✅ **Web Backend - HTTP Server** (Steps 5-7 Complete) ✨ **NEW!**
-  - axum-based REST API server (576 LOC)
-  - 6 endpoints: health, engine summary, runner snapshots/history/CRUD
+- ✅ **Web Backend - HTTP Server** (Steps 5-7 Complete)
+  - axum-based REST API server (950+ LOC)
+  - **14 endpoints total**:
+    - Engine: health, summary
+    - Runners: list, create, delete, snapshot, history
+    - Control: pause, resume, stop
+    - Reference: strategies, symbols
   - Complete error handling with HTTP status codes
   - CORS middleware and request logging
   - **Live Binance US WebSocket integration** in background task
   - Automatic market data feed when runners are created
   - 11 tests passing (error types, endpoints, integration)
-- ✅ **Web Frontend - React Dashboard** (Steps 8-9 Complete) ✨ **NEW!**
-  - React 18 + TypeScript + Vite (850 LOC)
+- ✅ **Web Frontend - React Dashboard** (Steps 8-9 Complete)
+  - React 18 + TypeScript + Vite (1,200+ LOC)
   - TanStack Query for data fetching/caching
   - Recharts for candlestick chart visualization
   - Tailwind CSS v4 for styling
@@ -123,8 +127,25 @@ Build a high-performance, multi-threaded trading system with:
   - **Runner detail page**: Live state, position, stats, price charts
   - Auto-refresh: Dashboard (5s), Runner details (2s)
   - Type-safe API client with error handling
-- 📅 Enhanced frontend features (Step 10 - Next)
-- 📅 WebSocket real-time streaming (Optional)
+- ✅ **Enhanced Frontend Features** (Step 10 Complete) ✨ **NEW!**
+  - **Runner Control System**:
+    - RunnerStatus enum (Running, Paused, Stopped)
+    - Pause/Resume/Stop commands via channels
+    - Enhanced RunnerListTable with control buttons
+    - Status color indicators (green/yellow/red)
+    - Real-time state updates with auto-refresh
+  - **Strategy Dropdown**:
+    - Dynamic strategy listing from lua-strategies/
+    - Multi-path resolution for different working dirs
+    - Strategy metadata (name, path, category)
+  - **Symbol Dropdown**:
+    - 18 curated symbols across 4 categories
+    - Crypto Major/Alt, Stocks Tech, Forex Major
+    - Grouped dropdown with optgroups
+  - Backend: +600 LOC (runner control, reference data)
+  - Frontend: +400 LOC (enhanced components, dropdowns)
+  - Tests: 6 additional snapshot tests
+- 📅 WebSocket real-time streaming (Optional - Phase 7)
 
 **Documentation** ✅ **COMPLETE** (Day 1-6)
 - ✅ Comprehensive Rustdoc comments (30+ tested examples in docstrings)
@@ -221,28 +242,28 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ Thread-safe with parking_lot RwLock
 - ✅ Demo application with dual mode (simulated + live Binance)
 
-**Project Metrics (Day 6 Summary):**
-- **Total Code:** ~12,326 LOC
-  - Rust production: ~8,376 LOC (engine core + runner system + web backend)
-  - React frontend: ~850 LOC (TypeScript + components)
+**Project Metrics (Day 7 Summary):**
+- **Total Code:** ~13,326 LOC
+  - Rust production: ~8,976 LOC (engine core + runner system + web backend)
+  - React frontend: ~1,250 LOC (TypeScript + components)
   - OCaml: 1,606 LOC (indicators)
   - Lua strategies: 474 LOC (3 examples)
   - Tests/Examples: ~1,100 LOC
-- **Total Tests:** 203 passing ✅
+- **Total Tests:** 209 passing ✅
   - Phase 1 (Market Data): 47 tests
   - Phase 2 (Indicators): 48 tests (40 Rust + 8 OCaml)
   - Phase 3 (State Machine): 28 tests
   - Phase 4 (Lua Strategies): 14 tests
   - Phase 5 (Multi-Symbol Engine): 28 tests (17 unit + 11 integration)
-  - Phase 6 (Web App): 38 tests (10 event + 7 introspection + 11 backend + 10 frontend)
-- **Documentation:** 17+ guides, 5 ADRs, 8 phase summaries, comprehensive API docs
-- **Completion:** 5.95 of 12 phases complete (50% of core system, Phase 6: 90% complete)
+  - Phase 6 (Web App): 44 tests (10 event + 7 introspection + 11 backend + 6 snapshot + 10 frontend)
+- **Documentation:** 17+ guides, 5 ADRs, 9 phase summaries, comprehensive API docs
+- **Completion:** 6.0 of 12 phases complete (50% of core system, Phase 6: 100% complete)
 
-**Next Milestone:** Enhanced Frontend Features (Phase 6 - Step 10)
-- **Goal:** Complete web application with full monitoring and control capabilities
-- **Current:** Backend + frontend complete with live Binance US data streaming (Steps 1-9 done)
-- **Next:** Enhanced features - runner deletion, strategy selector, performance metrics, notifications
-- **Complete:** Live dashboard with candlestick charts, position tracking, runner creation, and real-time updates
+**Next Milestone:** Historical Backtesting (Phase 7)
+- **Goal:** Add historical data management and backtesting framework
+- **Current:** Complete web app with runner control, strategy/symbol dropdowns, real-time monitoring
+- **Next:** Historical data fetching, backtest runner, performance metrics, replay system
+- **Previous Milestone Complete:** Phase 6 - Full web infrastructure with control system ✅
 
 ---
 

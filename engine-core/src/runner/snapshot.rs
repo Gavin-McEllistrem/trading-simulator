@@ -11,6 +11,41 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
+/// Runner execution status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunnerStatus {
+    /// Runner is actively processing ticks
+    Running,
+    /// Runner is paused (not processing ticks, preserving state)
+    Paused,
+    /// Runner has been stopped and cannot be resumed
+    Stopped,
+}
+
+impl RunnerStatus {
+    /// Check if runner can process ticks
+    pub fn is_active(&self) -> bool {
+        matches!(self, RunnerStatus::Running)
+    }
+
+    /// Check if runner is paused
+    pub fn is_paused(&self) -> bool {
+        matches!(self, RunnerStatus::Paused)
+    }
+
+    /// Check if runner is stopped
+    pub fn is_stopped(&self) -> bool {
+        matches!(self, RunnerStatus::Stopped)
+    }
+}
+
+impl Default for RunnerStatus {
+    fn default() -> Self {
+        RunnerStatus::Running
+    }
+}
+
 /// Commands that can be sent to a running SymbolRunner.
 #[derive(Debug)]
 pub enum RunnerCommand {
@@ -27,6 +62,24 @@ pub enum RunnerCommand {
         /// Channel to send the price history response.
         response: oneshot::Sender<Vec<MarketData>>,
     },
+
+    /// Pause the runner (stop processing ticks, preserve state).
+    Pause {
+        /// Channel to send confirmation response.
+        response: oneshot::Sender<bool>,
+    },
+
+    /// Resume the runner from paused state.
+    Resume {
+        /// Channel to send confirmation response.
+        response: oneshot::Sender<bool>,
+    },
+
+    /// Stop the runner completely (cannot be resumed).
+    Stop {
+        /// Channel to send confirmation response.
+        response: oneshot::Sender<bool>,
+    },
 }
 
 /// A point-in-time snapshot of a runner's complete state.
@@ -40,6 +93,9 @@ pub struct RunnerSnapshot {
 
     /// Symbol being traded.
     pub symbol: String,
+
+    /// Runner execution status (Running/Paused/Stopped).
+    pub status: RunnerStatus,
 
     /// Current state machine state.
     pub current_state: State,
@@ -86,6 +142,7 @@ impl RunnerSnapshot {
     pub fn new(
         runner_id: String,
         symbol: String,
+        status: RunnerStatus,
         current_state: State,
         position: Option<Position>,
         context: ContextSnapshot,
@@ -95,6 +152,7 @@ impl RunnerSnapshot {
         Self {
             runner_id,
             symbol,
+            status,
             current_state,
             position,
             context,
@@ -135,6 +193,7 @@ mod tests {
         let snapshot = RunnerSnapshot::new(
             "test_runner".to_string(),
             "BTCUSDT".to_string(),
+            RunnerStatus::Running,
             State::Idle,
             None,
             context,
@@ -144,6 +203,7 @@ mod tests {
 
         assert_eq!(snapshot.runner_id, "test_runner");
         assert_eq!(snapshot.symbol, "BTCUSDT");
+        assert_eq!(snapshot.status, RunnerStatus::Running);
         assert_eq!(snapshot.state_str(), "Idle");
         assert!(!snapshot.has_position());
         assert_eq!(snapshot.uptime_secs, 120);
@@ -156,6 +216,7 @@ mod tests {
         let snapshot = RunnerSnapshot::new(
             "btc_runner".to_string(),
             "BTCUSDT".to_string(),
+            RunnerStatus::Running,
             State::InPosition,
             Some(position),
             ContextSnapshot::default(),
@@ -173,6 +234,7 @@ mod tests {
         let snapshot = RunnerSnapshot::new(
             "test_runner".to_string(),
             "ETHUSDT".to_string(),
+            RunnerStatus::Running,
             State::Analyzing,
             None,
             ContextSnapshot::default(),
@@ -189,6 +251,7 @@ mod tests {
         let deserialized: RunnerSnapshot = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.runner_id, "test_runner");
         assert_eq!(deserialized.symbol, "ETHUSDT");
+        assert_eq!(deserialized.status, RunnerStatus::Running);
     }
 
     #[test]

@@ -61,7 +61,7 @@ mod snapshot;
 pub use config::RunnerConfig;
 pub use stats::RunnerStats;
 pub use engine::TradingEngine;
-pub use snapshot::{RunnerCommand, RunnerSnapshot, ContextSnapshot};
+pub use snapshot::{RunnerCommand, RunnerSnapshot, ContextSnapshot, RunnerStatus};
 
 /// Per-symbol trading orchestrator
 ///
@@ -76,6 +76,9 @@ pub struct SymbolRunner {
 
     /// Symbol being traded (e.g., "BTCUSDT")
     symbol: String,
+
+    /// Runner execution status
+    status: RunnerStatus,
 
     /// Market data window (circular buffer)
     window: MarketDataWindow,
@@ -147,6 +150,7 @@ impl SymbolRunner {
         Self {
             runner_id,
             symbol,
+            status: RunnerStatus::default(),
             window,
             state_machine,
             strategy,
@@ -223,8 +227,8 @@ impl SymbolRunner {
         }
     }
 
-    /// Handle introspection commands
-    fn handle_command(&self, cmd: RunnerCommand) {
+    /// Handle introspection and control commands
+    fn handle_command(&mut self, cmd: RunnerCommand) {
         match cmd {
             RunnerCommand::GetSnapshot { response } => {
                 let snapshot = self.create_snapshot();
@@ -235,6 +239,31 @@ impl SymbolRunner {
                 let history = self.get_price_history(count);
                 let _ = response.send(history);
             }
+            RunnerCommand::Pause { response } => {
+                let success = if self.status.is_active() {
+                    self.status = RunnerStatus::Paused;
+                    tracing::info!("Runner {} paused", self.runner_id);
+                    true
+                } else {
+                    false
+                };
+                let _ = response.send(success);
+            }
+            RunnerCommand::Resume { response } => {
+                let success = if self.status.is_paused() {
+                    self.status = RunnerStatus::Running;
+                    tracing::info!("Runner {} resumed", self.runner_id);
+                    true
+                } else {
+                    false
+                };
+                let _ = response.send(success);
+            }
+            RunnerCommand::Stop { response } => {
+                self.status = RunnerStatus::Stopped;
+                tracing::info!("Runner {} stopped", self.runner_id);
+                let _ = response.send(true);
+            }
         }
     }
 
@@ -243,6 +272,7 @@ impl SymbolRunner {
         RunnerSnapshot::new(
             self.runner_id.clone(),
             self.symbol.clone(),
+            self.status,
             *self.state_machine.current_state(),
             self.state_machine.position().cloned(),
             self.create_context_snapshot(),
@@ -316,6 +346,12 @@ impl SymbolRunner {
                         }
                     };
 
+                    // Check if stopped
+                    if self.status.is_stopped() {
+                        tracing::info!("Runner {} is stopped, exiting", self.runner_id);
+                        break;
+                    }
+
                     // Validate symbol matches
                     if market_data.symbol != self.symbol {
                         tracing::warn!(
@@ -323,6 +359,11 @@ impl SymbolRunner {
                             market_data.symbol,
                             self.symbol
                         );
+                        continue;
+                    }
+
+                    // Skip tick processing if paused
+                    if !self.status.is_active() {
                         continue;
                     }
 

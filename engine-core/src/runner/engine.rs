@@ -997,6 +997,89 @@ impl TradingEngine {
             .ok()?
             .ok()
     }
+
+    /// Pause a runner (stop processing ticks, preserve state)
+    ///
+    /// # Arguments
+    ///
+    /// * `runner_id` - The unique ID of the runner to pause
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` if the runner was successfully paused,
+    /// `Ok(false)` if the runner was already paused or stopped,
+    /// or `Err` if the runner doesn't exist.
+    pub async fn pause_runner(&self, runner_id: &str) -> Result<bool> {
+        let handle = self.runners.get(runner_id)
+            .ok_or_else(|| TradingEngineError::RunnerNotFound(runner_id.to_string()))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        let cmd = RunnerCommand::Pause { response: response_tx };
+
+        handle.cmd_tx.send(cmd)
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?;
+
+        tokio::time::timeout(std::time::Duration::from_millis(100), response_rx)
+            .await
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))
+    }
+
+    /// Resume a paused runner
+    ///
+    /// # Arguments
+    ///
+    /// * `runner_id` - The unique ID of the runner to resume
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` if the runner was successfully resumed,
+    /// `Ok(false)` if the runner was not paused,
+    /// or `Err` if the runner doesn't exist.
+    pub async fn resume_runner(&self, runner_id: &str) -> Result<bool> {
+        let handle = self.runners.get(runner_id)
+            .ok_or_else(|| TradingEngineError::RunnerNotFound(runner_id.to_string()))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        let cmd = RunnerCommand::Resume { response: response_tx };
+
+        handle.cmd_tx.send(cmd)
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?;
+
+        tokio::time::timeout(std::time::Duration::from_millis(100), response_rx)
+            .await
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))
+    }
+
+    /// Stop a runner completely (cannot be resumed)
+    ///
+    /// # Arguments
+    ///
+    /// * `runner_id` - The unique ID of the runner to stop
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` when the runner is successfully stopped,
+    /// or `Err` if the runner doesn't exist.
+    ///
+    /// Note: The runner will exit its main loop and the task will complete.
+    /// You may want to call `remove_runner()` afterwards to clean up resources.
+    pub async fn stop_runner(&self, runner_id: &str) -> Result<bool> {
+        let handle = self.runners.get(runner_id)
+            .ok_or_else(|| TradingEngineError::RunnerNotFound(runner_id.to_string()))?;
+
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        let cmd = RunnerCommand::Stop { response: response_tx };
+
+        handle.cmd_tx.send(cmd)
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?;
+
+        tokio::time::timeout(std::time::Duration::from_millis(100), response_rx)
+            .await
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))?
+            .map_err(|_| TradingEngineError::ChannelClosed(runner_id.to_string()))
+    }
 }
 
 impl Default for TradingEngine {
