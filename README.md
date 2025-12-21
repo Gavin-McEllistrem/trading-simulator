@@ -6,7 +6,7 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 
 **Current Phase:** 6 (Web App Infrastructure) 🚧 **IN PROGRESS**
 
-**Progress:** 5.67 of 12 phases complete (47% of core system, Phase 6: 40% complete)
+**Progress:** 5.95 of 12 phases complete (50% of core system, Phase 6: 90% complete)
 
 ### Completed (Phases 0-5)
 
@@ -56,32 +56,54 @@ A high-performance, multi-threaded trading system with Rust core engine, OCaml i
 - **28 tests** passing (17 unit + 11 integration)
 - **Demo**: 6 concurrent runners (2 strategies × 3 symbols)
 
-**Phase 6: Web App Infrastructure** 🚧 (Steps 1-4 Complete)
+**Phase 6: Web App Infrastructure** 🚧 (Steps 1-9 Complete)
 - **Event System** (~258 LOC)
   - 10 event types (TickReceived, StateTransition, PositionUpdated, etc.)
   - Real-time streaming from runners → engine → multiple subscribers
   - Event aggregation with automatic subscriber cleanup
   - JSON serialization for WebSocket transmission
   - 10 tests passing (event types, emission, aggregation)
-- **State Introspection API** (~195 LOC) ✨ **NEW!**
+- **State Introspection API** (~195 LOC)
   - Command channel for querying runner state on-demand
   - `get_runner_snapshot()` - Query current state, position, context, stats
   - `get_price_history()` - Query recent price data from window
   - RunnerSnapshot with full JSON serialization
   - Non-blocking queries with 100ms timeout
-  - 7 new tests passing (snapshot creation, queries, error handling)
+  - 7 tests passing (snapshot creation, queries, error handling)
+- **Web Backend - HTTP Server** (~576 LOC)
+  - axum-based REST API server
+  - 6 endpoints: health, engine summary, runner snapshots/history/delete
+  - Complete error handling with proper HTTP status codes
+  - JSON request/response serialization
+  - CORS middleware and request logging
+  - **Live Binance US WebSocket integration** in background task
+  - Automatic market data feed when runners are created
+  - 11 tests passing (error types, endpoints, integration)
+- **Web Frontend - React Application** (~850 LOC) ✨ **NEW!**
+  - React 18 + TypeScript + Vite
+  - TanStack Query for data fetching and caching
+  - Recharts for candlestick chart visualization
+  - Tailwind CSS v4 for styling
+  - **Dashboard page**: Engine summary, runner list, add runner form
+  - **Runner detail page**: Live state, position, stats, price chart
+  - Auto-refresh: Dashboard (5s), Runner details (2s)
+  - Type-safe API client with error handling
 - **Architecture**
-  - Push model: Real-time events via pub-sub
-  - Pull model: On-demand snapshots via request-response
+  - Push model: Real-time events via pub-sub (prepared for WebSocket)
+  - Pull model: On-demand snapshots via REST API + auto-polling
+  - Live data: Binance US feed → Engine → Runners
   - Combined: Complete observability for web dashboards
 
-**Total:** 98 tests passing, ~10,900 LOC
+**Total:** 120 tests passing, ~12,326 LOC
 
 ### Next Steps
-- 📅 HTTP/WebSocket server (Phase 6 - Steps 5-8)
+- 📅 Enhanced frontend features (Phase 6 - Step 10)
+- 📅 WebSocket real-time streaming (Phase 6 - Optional)
 - 📅 Historical backtesting (Phase 7)
 
 ## Quick Start
+
+### Trading Engine
 
 ```bash
 # Navigate to engine core
@@ -115,6 +137,48 @@ cargo run --example multi_symbol_engine_demo
 cargo doc --no-deps --open
 ```
 
+### Web Backend (REST API)
+
+```bash
+# Run the web server (with live Binance US data)
+cargo run -p trading-web-backend
+
+# In another terminal, test the API
+curl http://localhost:3000/health
+curl http://localhost:3000/api/engine/summary
+
+# Run backend tests
+cargo test -p trading-web-backend
+```
+
+### Web Frontend (React Dashboard)
+
+```bash
+# Navigate to frontend directory
+cd web-frontend
+
+# Install dependencies (first time only)
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+Open your browser to `http://localhost:5173` to access the dashboard.
+
+**Features:**
+- View engine status and all active runners
+- Create new runners with custom strategies
+- Monitor runner state, positions, and P&L in real-time
+- Visualize price charts with candlestick data
+- Auto-refreshing data (dashboard: 5s, runner details: 2s)
+
 ### Demo Output
 
 **Simulated Feed:**
@@ -141,6 +205,7 @@ INFO  Kline #2: ETHUSDT - O:2821.88 H:2821.88 L:2821.88 C:2821.88 V:0 | Bid:2816
 
 ```
 trading-simulator/
+├── Cargo.toml            # Workspace configuration
 ├── engine-core/          # Main Rust engine
 │   ├── src/
 │   │   ├── market_data/  # OHLCV data structures
@@ -149,6 +214,7 @@ trading-simulator/
 │   │   ├── indicators/   # Technical indicators (SMA, EMA, RSI, MACD, BB)
 │   │   ├── state_machine/# Trading FSM and position tracking
 │   │   ├── strategy/     # Lua integration layer
+│   │   ├── runner/       # Multi-symbol engine, events, introspection
 │   │   ├── config/       # Configuration types
 │   │   ├── error.rs      # Error handling
 │   │   ├── lib.rs        # Library root
@@ -156,6 +222,37 @@ trading-simulator/
 │   ├── tests/            # Integration tests
 │   ├── examples/         # Demo applications
 │   └── Cargo.toml
+├── web-backend/          # HTTP/WebSocket server (Phase 6)
+│   ├── src/
+│   │   ├── routes/       # API endpoint handlers
+│   │   ├── websocket/    # WebSocket handlers (TBD)
+│   │   ├── error.rs      # API error types
+│   │   ├── state.rs      # Application state
+│   │   ├── lib.rs        # Server core
+│   │   └── main.rs       # Entry point with Binance US feed
+│   ├── tests/            # Integration tests
+│   ├── Cargo.toml
+│   ├── README.md
+│   └── BACKEND_PLAN.md
+├── web-frontend/         # React dashboard (Phase 6) ✨ NEW!
+│   ├── src/
+│   │   ├── main.tsx      # Entry point
+│   │   ├── App.tsx       # Root component with routing
+│   │   ├── pages/
+│   │   │   ├── Dashboard.tsx    # Main dashboard page
+│   │   │   └── RunnerDetail.tsx # Runner detail with charts
+│   │   ├── components/
+│   │   │   └── AddRunnerForm.tsx # Runner creation form
+│   │   ├── services/
+│   │   │   └── api.ts    # API client
+│   │   ├── hooks/
+│   │   │   └── useApi.ts # React Query hooks
+│   │   └── types/
+│   │       └── api.ts    # TypeScript types
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── postcss.config.js
 ├── ocaml-indicators/     # OCaml indicator library (Phase 2)
 │   ├── src/              # Pure functional implementations
 │   ├── bin/              # CLI with JSON I/O
@@ -200,7 +297,10 @@ trading-simulator/
 - [Phase 4: Lua Strategy Integration](changes/2025-12-18-phase4-completion.md)
 - [Phase 5: Multi-Symbol Threading Engine](changes/2025-12-19-phase5-completion.md)
 - [Phase 6: Event System (Steps 1-3)](changes/2025-12-20-phase6-event-system.md)
-- [Phase 6: State Introspection (Step 4)](changes/2025-12-20-phase6-state-introspection.md) ✨ **NEW!**
+- [Phase 6: State Introspection (Step 4)](changes/2025-12-20-phase6-state-introspection.md)
+- [Phase 6: Web Backend Scaffolding (Step 5)](changes/2025-12-20-web-backend-scaffolding.md)
+- [Phase 6: REST API Implementation (Steps 6-7)](changes/2025-12-20-rest-api-implementation.md)
+- [Phase 6: Web Application (Steps 8-9)](changes/2025-12-20-web-application-implementation.md) ✨ **NEW!**
 
 ## Development
 
@@ -304,10 +404,11 @@ cargo test --doc
 | 3 | State Machine & Position Tracking | ✅ | 28 |
 | 4 | Lua Strategy Integration | ✅ | 14 |
 | 5 | Multi-Symbol Threading Engine | ✅ | 28 |
-| 6 | Execution & Risk Management | 📅 | - |
-| 7 | Historical Backtesting | 📅 | - |
+| 6 | Web Application (Backend + Frontend) | 🚧 | 38 |
+| 7 | Execution & Risk Management | 📅 | - |
+| 8 | Historical Backtesting | 📅 | - |
 
-**Total: 145 tests passing, 5 of 12 phases complete (42%)**
+**Total: 203 tests passing, 5.95 of 12 phases complete (50%)**
 
 See [trading-system-roadmap.md](trading-system-roadmap.md) for complete plan.
 

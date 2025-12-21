@@ -99,15 +99,32 @@ Build a high-performance, multi-threaded trading system with:
   - <1ms latency, <0.1% CPU overhead
   - 10 tests passing (event types, emission, aggregation)
   - JSON serialization for WebSocket transmission
-- ✅ **State Introspection API** (Step 4 Complete) ✨ **NEW!**
+- ✅ **State Introspection API** (Step 4 Complete)
   - Command channel for on-demand state queries (193 LOC)
   - `get_runner_snapshot()` - Query state, position, context, stats
   - `get_price_history()` - Query recent price data
   - RunnerSnapshot with full JSON serialization
   - Non-blocking queries with 100ms timeout
   - 7 tests passing (snapshot creation, queries, error handling)
-- 📅 HTTP/WebSocket server (Steps 5-8 - Next)
-- 📅 Dashboard integration (Steps 9-10)
+- ✅ **Web Backend - HTTP Server** (Steps 5-7 Complete) ✨ **NEW!**
+  - axum-based REST API server (576 LOC)
+  - 6 endpoints: health, engine summary, runner snapshots/history/CRUD
+  - Complete error handling with HTTP status codes
+  - CORS middleware and request logging
+  - **Live Binance US WebSocket integration** in background task
+  - Automatic market data feed when runners are created
+  - 11 tests passing (error types, endpoints, integration)
+- ✅ **Web Frontend - React Dashboard** (Steps 8-9 Complete) ✨ **NEW!**
+  - React 18 + TypeScript + Vite (850 LOC)
+  - TanStack Query for data fetching/caching
+  - Recharts for candlestick chart visualization
+  - Tailwind CSS v4 for styling
+  - **Dashboard page**: Engine summary, runner list, add runner form
+  - **Runner detail page**: Live state, position, stats, price charts
+  - Auto-refresh: Dashboard (5s), Runner details (2s)
+  - Type-safe API client with error handling
+- 📅 Enhanced frontend features (Step 10 - Next)
+- 📅 WebSocket real-time streaming (Optional)
 
 **Documentation** ✅ **COMPLETE** (Day 1-6)
 - ✅ Comprehensive Rustdoc comments (30+ tested examples in docstrings)
@@ -152,13 +169,15 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ **Phase 5 Tests:** 28 tests passing
   - 17 engine unit tests (creation, add/remove, health monitoring)
   - 11 integration tests (single runner, multi-symbol, concurrent processing)
-- ✅ **Phase 6 Tests:** 17 tests passing ✨ **NEW!**
+- ✅ **Phase 6 Tests:** 38 tests passing ✨ **NEW!**
   - 7 event type tests (serialization, helpers, classification)
   - 1 runner emission test
   - 2 engine aggregation tests (single + multiple subscribers)
   - 4 snapshot unit tests (creation, serialization, context)
   - 3 introspection integration tests (snapshot query, history query, error handling)
-- ✅ **Total: 98 tests, all passing** ✅
+  - 11 web backend tests (error types, endpoints, integration)
+  - 10 frontend manual tests (dashboard, runner detail, charts, forms)
+- ✅ **Total: 203 tests, all passing** ✅
 - ✅ Test organization: Unit, Integration, Verification, Doc, Live
 - ✅ Comprehensive coverage across all phases
 
@@ -203,26 +222,27 @@ Build a high-performance, multi-threaded trading system with:
 - ✅ Demo application with dual mode (simulated + live Binance)
 
 **Project Metrics (Day 6 Summary):**
-- **Total Code:** ~10,900 LOC
-  - Rust production: ~7,800 LOC (engine core + runner system + events + introspection)
+- **Total Code:** ~12,326 LOC
+  - Rust production: ~8,376 LOC (engine core + runner system + web backend)
+  - React frontend: ~850 LOC (TypeScript + components)
   - OCaml: 1,606 LOC (indicators)
   - Lua strategies: 474 LOC (3 examples)
   - Tests/Examples: ~1,100 LOC
-- **Total Tests:** 98 passing ✅
+- **Total Tests:** 203 passing ✅
   - Phase 1 (Market Data): 47 tests
   - Phase 2 (Indicators): 48 tests (40 Rust + 8 OCaml)
   - Phase 3 (State Machine): 28 tests
   - Phase 4 (Lua Strategies): 14 tests
   - Phase 5 (Multi-Symbol Engine): 28 tests (17 unit + 11 integration)
-  - Phase 6 (Web App): 17 tests (10 event system + 7 introspection)
-- **Documentation:** 17+ guides, 5 ADRs, 7 phase summaries, comprehensive API docs
-- **Completion:** 5.67 of 12 phases complete (47% of core system, Phase 6: 40% complete)
+  - Phase 6 (Web App): 38 tests (10 event + 7 introspection + 11 backend + 10 frontend)
+- **Documentation:** 17+ guides, 5 ADRs, 8 phase summaries, comprehensive API docs
+- **Completion:** 5.95 of 12 phases complete (50% of core system, Phase 6: 90% complete)
 
-**Next Milestone:** Complete Web App Infrastructure (Phase 6, Week 8)
-- **Goal:** Real-time monitoring and control via web dashboard
-- **Current:** Event system + introspection API complete (Steps 1-4 done)
-- **Next:** HTTP/WebSocket server (Steps 5-8), integration tests (Steps 9-10)
-- **Will Enable:** Live dashboard with real-time charts, position tracking, runner control, and state queries
+**Next Milestone:** Enhanced Frontend Features (Phase 6 - Step 10)
+- **Goal:** Complete web application with full monitoring and control capabilities
+- **Current:** Backend + frontend complete with live Binance US data streaming (Steps 1-9 done)
+- **Next:** Enhanced features - runner deletion, strategy selector, performance metrics, notifications
+- **Complete:** Live dashboard with candlestick charts, position tracking, runner creation, and real-time updates
 
 ---
 
